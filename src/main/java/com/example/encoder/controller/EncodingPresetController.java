@@ -3,6 +3,7 @@ package com.example.encoder.controller; // Kendi paket adına göre kontrol et
 import com.example.encoder.entity.EncodingPreset;
 import com.example.encoder.entity.enums.Format;
 import com.example.encoder.service.EncodingPresetService;
+import com.example.encoder.service.MediaProcessingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,7 +16,7 @@ import java.util.UUID;
 public class EncodingPresetController {
 
     private final EncodingPresetService service; // Müdürümüzü (Service) buraya çağırıyoruz
-
+    private final MediaProcessingService mediaService;
     // 1. CREATE - Yeni kayıt ekleme (POST isteği)
     @PostMapping
     public EncodingPreset createPreset(@RequestBody EncodingPreset preset) {
@@ -44,5 +45,11 @@ public class EncodingPresetController {
     @DeleteMapping("/{id}")
     public void deletePreset(@PathVariable UUID id) {
         service.deletePreset(id);
+    }
+
+    // ENCODING SİMÜLASYONU (POST isteği -> /api/presets/encode?fileName=test.mp4&presetId=...)
+    @PostMapping("/encode")
+    public String startEncoding(@RequestParam String fileName, @RequestParam UUID presetId) {
+        return mediaService.encodeVideo(fileName, presetId);
     }
 }
