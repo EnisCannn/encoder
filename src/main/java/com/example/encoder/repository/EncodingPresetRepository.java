@@ -15,6 +15,7 @@ public interface EncodingPresetRepository extends JpaRepository<EncodingPreset, 
     // JpaRepository sayesinde; save(), findAll(), findById(), deleteById() gibi
     // temel veritabanı komutlarının hepsi arka planda otomatik olarak hazırlandı!
 // Sadece metod isimlerini yazıyoruz, Spring arka planda SQL sorgusunu kendi üretiyor!
+    boolean existsByName(String name);
     List<EncodingPreset> findByFormat(Format format);
 
     List<EncodingPreset> findByVideoCodec(VideoCodec videoCodec);

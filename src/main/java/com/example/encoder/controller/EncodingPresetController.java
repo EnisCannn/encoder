@@ -1,54 +1,57 @@
-package com.example.encoder.controller; // Kendi paket adına göre kontrol et
+package com.example.encoder.controller;
 
-import com.example.encoder.entity.EncodingPreset;
+import com.example.encoder.dto.CreatePresetRequest;
+import com.example.encoder.dto.PresetResponse;
 import com.example.encoder.entity.enums.Format;
 import com.example.encoder.service.EncodingPresetService;
 import com.example.encoder.service.MediaProcessingService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
 
-@RestController // Bu sınıfın bir web API gişesi olduğunu belirtir
-@RequestMapping("/api/presets") // Bu sınıftaki tüm adreslerin "/api/presets" ile başlamasını sağlar
+@RestController
+@RequestMapping("/api/presets")
 @RequiredArgsConstructor
 public class EncodingPresetController {
 
-    private final EncodingPresetService service; // Müdürümüzü (Service) buraya çağırıyoruz
+    private final EncodingPresetService service;
     private final MediaProcessingService mediaService;
-    // 1. CREATE - Yeni kayıt ekleme (POST isteği)
+
+    // 1. CREATE - Artık dışarıdan CreatePresetRequest alıp PresetResponse dönüyor
     @PostMapping
-    public EncodingPreset createPreset(@RequestBody EncodingPreset preset) {
-        return service.createPreset(preset);
+    public PresetResponse createPreset(@Valid @RequestBody CreatePresetRequest request) {
+        return service.createPreset(request);
     }
 
-    // 2. READ - Hepsini getirme (GET isteği)
+    // 2. READ - Listede de filtrelenmiş DTO listesi (PresetResponse) dönüyoruz
     @GetMapping
-    public List<EncodingPreset> getAllPresets() {
+    public List<PresetResponse> getAllPresets() {
         return service.getAllPresets();
     }
 
-    // 3. READ - Filtreli getirme (GET isteği -> /api/presets/filter?format=MP4)
+    // 3. READ - Filtreli getirmede de DTO listesi dönüyoruz
     @GetMapping("/filter")
-    public List<EncodingPreset> getPresetsByFormat(@RequestParam Format format) {
+    public List<PresetResponse> getPresetsByFormat(@RequestParam Format format) {
         return service.getPresetsByFormat(format);
     }
 
-    // 4. UPDATE - Güncelleme (PUT isteği -> /api/presets/{id})
+    // 4. UPDATE - Güncellemede dışarıdan CreatePresetRequest alıp PresetResponse dönüyor
     @PutMapping("/{id}")
-    public EncodingPreset updatePreset(@PathVariable UUID id, @RequestBody EncodingPreset updatedData) {
+    public PresetResponse updatePreset(@PathVariable UUID id, @Valid @RequestBody CreatePresetRequest updatedData) {
         return service.updatePreset(id, updatedData);
     }
 
-    // 5. DELETE - Silme (DELETE isteği -> /api/presets/{id})
+    // 5. DELETE - Silme işleminde veri dönmediği için değişiklik yok
     @DeleteMapping("/{id}")
     public void deletePreset(@PathVariable UUID id) {
         service.deletePreset(id);
     }
 
-    // ENCODING SİMÜLASYONU (POST isteği -> /api/presets/encode?fileName=test.mp4&presetId=...)
-    @PostMapping("/encode")
+    // ENCODING SİMÜLASYONU - Dokunmuyoruz, tıkır tıkır çalışıyor
+    @GetMapping("/encode")
     public String startEncoding(@RequestParam String fileName, @RequestParam UUID presetId) {
         return mediaService.encodeVideo(fileName, presetId);
     }

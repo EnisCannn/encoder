@@ -33,41 +33,47 @@ public class MediaProcessingService {
         String outputPath = outputFolder + "/encoded_" + preset.getName() + "_" + fileName;
 
         try {
-            // 2. FFmpeg komut satırı yapısını oluşturalım
             List<String> command = new ArrayList<>();
             command.add("ffmpeg");
-            command.add("-y"); // Aynı isimde dosya varsa üzerine yaz
+            command.add("-y");
             command.add("-i");
             command.add(inputPath);
 
-            // Çözünürlük (Width x Height) ayarı varsa ekle
             if (preset.getWidth() != null && preset.getHeight() != null) {
                 command.add("-vf");
                 command.add("scale=" + preset.getWidth() + ":" + preset.getHeight());
             }
 
-            // Video Bitrate ayarı varsa ekle (örn: 5000k)
             if (preset.getVideoBitrate() != null) {
                 command.add("-b:v");
-                command.add(preset.getVideoBitrate() + "000"); // kbps cinsinden
+                command.add(preset.getVideoBitrate() + "000");
             }
 
-            // Çıkış dosya yolu
             command.add(outputPath);
 
-            // 3. İşletim sisteminde komutu çalıştır
+            System.out.println("=============================================");
+            System.out.println("ARANAN DOSYA YOLU: " + inputPath);
+            System.out.println("=============================================");
+
             ProcessBuilder processBuilder = new ProcessBuilder(command);
             processBuilder.redirectErrorStream(true);
             Process process = processBuilder.start();
 
-            // İşlemin tamamlanmasını bekle
+            // YENİ EKLENEN KOD: FFmpeg'in ürettiği logları anlık okuyup tıkanmayı engelliyoruz
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    // Bu sayede videonun yüzde kaçının bittiğini IntelliJ konsolundan izleyebilirsin
+                    System.out.println("[FFmpeg LOG]: " + line);
+                }
+            }
+
+            // Artık loglar boşaltıldığı için FFmpeg rahatça bitip bu satıra ulaşabilecek
             int exitCode = process.waitFor();
 
             if (exitCode == 0) {
-                return "✅ GERÇEK VİDEO ENCODING BAŞARILI!\n" +
-                        "İşlenen Dosya: " + inputPath + "\n" +
-                        "Kullanılan Preset: " + preset.getName() + "\n" +
-                        "Çıktı Konumu: " + outputPath;
+                return "GERÇEK VİDEO ENCODING BAŞARILI!\nÇıktı Konumu: " + outputPath;
             } else {
                 return "FFmpeg dönüştürme sırasında hata kodu döndürdü: " + exitCode;
             }

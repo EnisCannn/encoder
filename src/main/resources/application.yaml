@@ -20,7 +20,12 @@ spring:
       hibernate:
         format_sql: true # Konsoldaki SQL'leri okunabilir hale getirir
 
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 500MB
+
 encoder:
   folder:
-    input: C:/Users/enisa/OneDrive/Masaüstü/input
-    output: C:/Users/enisa/OneDrive/Masaüstü/output
+    input: C:/video_test/input
+    output: C:/video_test/output
