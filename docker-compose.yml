@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  eureka-server:
+    build: ./eureka-server
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    networks:
+      - encoder-net
+
+  main-service:
+    build: ./main-service
+    container_name: main-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/encoder_db
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    volumes:
+      # Windows klasörünü Linux'un kök dizinindeki /video_test klasörüne bağlıyoruz
+      - C:/video_test:/video_test
+    depends_on:
+      - eureka-server
+    networks:
+      - encoder-net
+
+  encoder-worker:
+    build: ./encoder-service
+    deploy:
+      replicas: 2
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/encoder_db
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    volumes:
+      # İşçi servisler için de aynı bağlantıyı kuruyoruz
+      - C:/video_test:/video_test
+    depends_on:
+      - eureka-server
+      - main-service
+    networks:
+      - encoder-net
+
+  ui-service:
+    build: ./ui-service
+    container_name: ui-service
+    ports:
+      - "4200:80"
+    networks:
+      - encoder-net
+
+networks:
+  encoder-net:
+    driver: bridge
