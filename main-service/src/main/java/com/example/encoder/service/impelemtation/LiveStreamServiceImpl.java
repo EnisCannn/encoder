@@ -31,6 +31,10 @@ public class LiveStreamServiceImpl implements LiveStreamService {
     private final VideoRepository videoRepository;
 
     private final Map<UUID, Process> activeStreams = new ConcurrentHashMap<>();
+    // Kullanıcının bilerek durdurduğu yayınlar (bunlar yeniden başlatılmaz)
+    private final Map<UUID, Boolean> manuallyStopped = new ConcurrentHashMap<>();
+    // Yeniden başlatırken aynı ayarları kullanabilmek için istekleri saklıyoruz
+    private final Map<UUID, LiveStreamRequest> activeRequests = new ConcurrentHashMap<>();
 
     @Value("${encoder.folder.live}")
     private String liveBaseFolder;
@@ -61,6 +65,27 @@ public class LiveStreamServiceImpl implements LiveStreamService {
         }
         stream.setOutputFolder(streamDir.getAbsolutePath());
 
+        activeRequests.put(stream.getId(), request);
+        manuallyStopped.remove(stream.getId());
+
+        try {
+            launchFfmpeg(stream, request);
+            stream.setStatus("LIVE");
+            repository.save(stream);
+        } catch (Exception e) {
+            stream.setStatus("ERROR");
+            repository.save(stream);
+            throw new RuntimeException("Yayın başlatılamadı: " + e.getMessage());
+        }
+        return stream;
+    }
+
+    // ffmpeg komutunu kurar. Her tur için ayrı segment ön eki kullanılır ki
+    // yeniden başlatmada eski segmentler ezilmesin.
+    private List<String> buildStreamCommand(LiveStream stream, LiveStreamRequest request) {
+        String streamDir = stream.getOutputFolder();
+        long runId = System.currentTimeMillis();
+
         List<String> command = new ArrayList<>();
         command.add(ffmpegPath);
         command.add("-y");
@@ -68,13 +93,12 @@ public class LiveStreamServiceImpl implements LiveStreamService {
         command.add("-user_agent");
         command.add("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
-        // Ağ kesintilerinde ffmpeg kendi kendine yeniden bağlansın
         command.add("-reconnect"); command.add("1");
         command.add("-reconnect_streamed"); command.add("1");
         command.add("-reconnect_delay_max"); command.add("10");
 
-        // KRİTİK: Kaynak dosya/http video bittiğinde baştan sarıp devam eder.
-        // Süreç ölmez, kullanıcı durdurana kadar tek bir sürekli akış olarak sürer.
+        // Dosya kaynaklarında döngü için; HLS'te etkisizdir, orada yeniden
+        // başlatma mekanizması devreye girer.
         command.add("-stream_loop"); command.add("-1");
         command.add("-fflags"); command.add("+genpts");
 
@@ -104,67 +128,84 @@ public class LiveStreamServiceImpl implements LiveStreamService {
         command.add("-f"); command.add("hls");
         command.add("-hls_time"); command.add("4");
         command.add("-hls_list_size"); command.add("0");
-        // Her segmentin gerçek saatini playlist'e yazar; klip hesabı bunu kullanır
-        command.add("-hls_flags"); command.add("program_date_time");
 
-        Path playlistPath = Paths.get(streamDir.getAbsolutePath(), "index.m3u8");
-        command.add(playlistPath.toString());
+        // append_list  : Yeniden başlatmada playlist sıfırlanmaz, üstüne eklenir.
+        //                Yayın geçmişi böylece baştan sona birikir.
+        // omit_endlist : ffmpeg çıkarken "bitti" etiketi yazmaz, akış canlı kalır.
+        // discont_start: Yeni tur başlarken süreksizlik işareti koyar (PTS sıfırlanır).
+        // program_date_time: Her segmentin gerçek saatini yazar, klip hesabı bunu kullanır.
+        command.add("-hls_flags");
+        command.add("append_list+omit_endlist+discont_start+program_date_time");
 
-        try {
-            ProcessBuilder builder = new ProcessBuilder(command);
-            builder.redirectErrorStream(true);
-            Process process = builder.start();
+        // Her turun segmentleri farklı isim alsın
+        command.add("-hls_segment_filename");
+        command.add(Paths.get(streamDir, "seg_" + runId + "_%06d.ts").toString());
 
-            activeStreams.put(stream.getId(), process);
-            stream.setStatus("LIVE");
-            repository.save(stream);
+        command.add(Paths.get(streamDir, "index.m3u8").toString());
+        return command;
+    }
 
-            final UUID streamId = stream.getId();
-            new Thread(() -> {
-                try (java.io.BufferedReader reader = new java.io.BufferedReader(
-                        new java.io.InputStreamReader(process.getInputStream()))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        System.out.println("YAYIN LOGU: " + line);
-                    }
-                } catch (Exception ignored) {
-                } finally {
-                    try {
-                        process.waitFor();
-                    } catch (InterruptedException ignored) {
-                        Thread.currentThread().interrupt();
-                    }
-                    activeStreams.remove(streamId);
-                    // -stream_loop sayesinde süreç normalde kendiliğinden bitmez;
-                    // buraya düşülmesi kullanıcının durdurması ya da gerçek bir
-                    // hata anlamına gelir. Durumu ona göre güncelle.
-                    repository.findById(streamId).ifPresent(s -> {
-                        if ("LIVE".equals(s.getStatus()) || "STARTING".equals(s.getStatus())) {
-                            s.setStatus("STOPPED");
-                            if (s.getStreamEndTime() == null) {
-                                s.setStreamEndTime(System.currentTimeMillis());
-                            }
-                            repository.save(s);
-                        }
-                    });
-                    System.out.println("--- YAYIN SÜRECİ SONLANDI: " + streamId + " ---");
+    // ffmpeg'i başlatır; süreç kendiliğinden biterse yayını kesmeden yeniden başlatır
+    private void launchFfmpeg(LiveStream stream, LiveStreamRequest request) throws Exception {
+        final UUID streamId = stream.getId();
+        List<String> command = buildStreamCommand(stream, request);
+
+        ProcessBuilder builder = new ProcessBuilder(command);
+        builder.redirectErrorStream(true);
+        Process process = builder.start();
+        activeStreams.put(streamId, process);
+
+        new Thread(() -> {
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    System.out.println("YAYIN LOGU: " + line);
                 }
-            }).start();
-        } catch (Exception e) {
-            stream.setStatus("ERROR");
-            repository.save(stream);
-            throw new RuntimeException("Yayın başlatılamadı: " + e.getMessage());
-        }
-        return stream;
+            } catch (Exception ignored) {
+            } finally {
+                try {
+                    process.waitFor();
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                }
+                activeStreams.remove(streamId);
+
+                if (Boolean.TRUE.equals(manuallyStopped.get(streamId))) {
+                    System.out.println("--- YAYIN KULLANICI TARAFINDAN DURDURULDU: " + streamId + " ---");
+                    return;
+                }
+
+                // Kaynak tükendi: playlist'e ekleyerek kaldığı yerden devam et
+                System.out.println("--- KAYNAK BİTTİ, YAYIN DEVAM ETTİRİLİYOR: " + streamId + " ---");
+                try {
+                    Thread.sleep(300);
+                    LiveStream fresh = repository.findById(streamId).orElse(null);
+                    LiveStreamRequest req = activeRequests.get(streamId);
+                    if (fresh != null && req != null && !Boolean.TRUE.equals(manuallyStopped.get(streamId))) {
+                        launchFfmpeg(fresh, req);
+                    }
+                } catch (Exception e) {
+                    System.out.println("Devam ettirme hatası: " + e.getMessage());
+                    repository.findById(streamId).ifPresent(s -> {
+                        s.setStatus("ERROR");
+                        s.setStreamEndTime(System.currentTimeMillis());
+                        repository.save(s);
+                    });
+                }
+            }
+        }).start();
     }
 
     @Override
     public void stopStream(UUID streamId) {
+        manuallyStopped.put(streamId, true);
         Process process = activeStreams.get(streamId);
         if (process != null) {
             process.destroy();
             activeStreams.remove(streamId);
         }
+        activeRequests.remove(streamId);
         repository.findById(streamId).ifPresent(stream -> {
             stream.setStatus("STOPPED");
             stream.setStreamEndTime(System.currentTimeMillis());
@@ -174,12 +215,15 @@ public class LiveStreamServiceImpl implements LiveStreamService {
 
     @Override
     public void deleteStream(UUID streamId) {
+        manuallyStopped.put(streamId, true);
         Process process = activeStreams.get(streamId);
         if (process != null) {
             process.destroy();
             activeStreams.remove(streamId);
         }
+        activeRequests.remove(streamId);
         repository.findById(streamId).ifPresent(repository::delete);
+        manuallyStopped.remove(streamId);
     }
 
     @Override
@@ -190,8 +234,7 @@ public class LiveStreamServiceImpl implements LiveStreamService {
         EncodingPreset preset = presetRepository.findById(UUID.fromString(request.getPresetId()))
                 .orElseThrow(() -> new RuntimeException("Şablon bulunamadı!"));
 
-        // Klip DAİMA diskteki gerçek yayın kaydından (index.m3u8) kesilir,
-        // kullanıcının orijinal yüklediği dosyadan değil.
+        // Klip DAİMA diskteki yayın kaydından kesilir, orijinal kaynak dosyadan değil.
         Path m3u8Path = Paths.get(stream.getOutputFolder(), "index.m3u8");
         File clipsDir = new File(clipsBaseFolder);
         if (!clipsDir.exists()) {
@@ -202,7 +245,6 @@ public class LiveStreamServiceImpl implements LiveStreamService {
             m3u8Path = Paths.get(stream.getOutputFolder(), "index.m3u8.tmp");
         }
 
-        // --- CANLI YAYIN DONMA ÇÖZÜMÜ ---
         Path snapshotM3u8 = Paths.get(stream.getOutputFolder(), "snapshot_" + System.currentTimeMillis() + ".m3u8");
         List<String> lines;
         try {
@@ -220,15 +262,10 @@ public class LiveStreamServiceImpl implements LiveStreamService {
         String outputFileName = "live_clip_" + System.currentTimeMillis() + "." + extension;
         Path outputPath = Paths.get(clipsDir.getAbsolutePath(), outputFileName);
 
-        // Playlist'teki ilk PROGRAM-DATE-TIME değeri, kaydın gerçek başlangıç saatidir.
-        // Bulunamazsa yayının başlatıldığı ana düşülür.
-        long timelineOrigin = readFirstProgramDateTime(lines);
-        if (timelineOrigin <= 0) {
-            timelineOrigin = stream.getStreamStartTime();
-        }
-
-        long startOffsetSec = (request.getStartTime() - timelineOrigin) / 1000;
-        long endOffsetSec = (request.getEndTime() - timelineOrigin) / 1000;
+        // Gerçek saati playlist zaman çizgisine çeviriyoruz.
+        // Yeniden başlatmalarda PTS sıfırlandığı için düz çıkarma yanlış sonuç verir.
+        double startOffsetSec = wallClockToPlaylistOffset(lines, request.getStartTime(), stream.getStreamStartTime());
+        double endOffsetSec = wallClockToPlaylistOffset(lines, request.getEndTime(), stream.getStreamStartTime());
 
         if (startOffsetSec < 0) startOffsetSec = 0;
         if (endOffsetSec < 0) endOffsetSec = 0;
@@ -238,10 +275,10 @@ public class LiveStreamServiceImpl implements LiveStreamService {
             throw new RuntimeException("Zamanlama Hatası! Bitiş süresi başlangıçtan büyük olmalıdır.");
         }
 
-        long durationSec = endOffsetSec - startOffsetSec;
+        double durationSec = endOffsetSec - startOffsetSec;
 
-        String formattedStartTime = String.format("%02d:%02d:%02d", startOffsetSec / 3600, (startOffsetSec % 3600) / 60, startOffsetSec % 60);
-        String formattedDuration = String.format("%02d:%02d:%02d", durationSec / 3600, (durationSec % 3600) / 60, durationSec % 60);
+        String formattedStartTime = formatSeconds(startOffsetSec);
+        String formattedDuration = formatSeconds(durationSec);
 
         List<String> command = new ArrayList<>();
         command.add(ffmpegPath);
@@ -322,21 +359,78 @@ public class LiveStreamServiceImpl implements LiveStreamService {
         }
     }
 
-    private long readFirstProgramDateTime(List<String> lines) {
-        for (String line : lines) {
+    /**
+     * İstenen gerçek saatin (epoch ms) playlist zaman çizgisinde kaçıncı saniyeye
+     * denk geldiğini bulur. Segmentleri sırayla yürür: her segmentin gerçek başlangıç
+     * saati PROGRAM-DATE-TIME'dan, süresi EXTINF'ten okunur.
+     */
+    private double wallClockToPlaylistOffset(List<String> lines, long targetEpochMs, long fallbackStartMs) {
+        double cumulative = 0;          // Playlist başından itibaren geçen süre
+        long segmentWallStart = -1;     // İçinde bulunduğumuz segmentin gerçek başlangıcı
+        double pendingDuration = -1;    // Okunan ama henüz işlenmemiş EXTINF süresi
+
+        for (String raw : lines) {
+            String line = raw.trim();
+
             if (line.startsWith("#EXT-X-PROGRAM-DATE-TIME:")) {
-                String value = line.substring("#EXT-X-PROGRAM-DATE-TIME:".length()).trim();
+                segmentWallStart = parseEpochMillis(line.substring("#EXT-X-PROGRAM-DATE-TIME:".length()).trim());
+                continue;
+            }
+
+            if (line.startsWith("#EXTINF:")) {
+                String value = line.substring("#EXTINF:".length()).replace(",", "").trim();
                 try {
-                    return java.time.OffsetDateTime.parse(value).toInstant().toEpochMilli();
+                    pendingDuration = Double.parseDouble(value);
                 } catch (Exception e) {
-                    try {
-                        return java.time.Instant.parse(value).toEpochMilli();
-                    } catch (Exception ignored) {
-                        return 0;
+                    pendingDuration = -1;
+                }
+                continue;
+            }
+
+            // Segment dosya adı satırı: burada segment tamamlanmış olur
+            if (!line.isEmpty() && !line.startsWith("#") && pendingDuration > 0) {
+                if (segmentWallStart > 0) {
+                    long segmentWallEnd = segmentWallStart + (long) (pendingDuration * 1000);
+                    if (targetEpochMs >= segmentWallStart && targetEpochMs < segmentWallEnd) {
+                        return cumulative + (targetEpochMs - segmentWallStart) / 1000.0;
+                    }
+                    // Hedef bu segmentten önceyse, playlist'in başına yakınsayalım
+                    if (targetEpochMs < segmentWallStart) {
+                        return cumulative;
                     }
                 }
+                cumulative += pendingDuration;
+                pendingDuration = -1;
+                segmentWallStart = -1;
             }
         }
-        return 0;
+
+        // PROGRAM-DATE-TIME hiç bulunamadıysa eski yönteme düşeriz
+        if (cumulative == 0 && fallbackStartMs > 0) {
+            return Math.max(0, (targetEpochMs - fallbackStartMs) / 1000.0);
+        }
+
+        // Hedef kaydın sonundan ilerideyse, kaydın sonunu döneriz
+        return cumulative;
+    }
+
+    private long parseEpochMillis(String value) {
+        try {
+            return java.time.OffsetDateTime.parse(value).toInstant().toEpochMilli();
+        } catch (Exception e) {
+            try {
+                return java.time.Instant.parse(value).toEpochMilli();
+            } catch (Exception ignored) {
+                return -1;
+            }
+        }
+    }
+
+    private String formatSeconds(double totalSeconds) {
+        long total = (long) Math.floor(totalSeconds);
+        long h = total / 3600;
+        long m = (total % 3600) / 60;
+        double s = totalSeconds - (h * 3600) - (m * 60);
+        return String.format(java.util.Locale.US, "%02d:%02d:%06.3f", h, m, s);
     }
 }
