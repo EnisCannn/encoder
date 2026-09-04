@@ -1,0 +1,246 @@
+<div style="margin: 20px;">
+
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div matTooltip="Kayıtlı Şablonlar" style="display: flex; align-items: center; justify-content: center; background: #eef2f6; padding: 10px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+      <mat-icon style="font-size: 32px; width: 32px; height: 32px; color: #1976d2;">tune</mat-icon>
+    </div>
+    <button mat-raised-button color="primary" (click)="addNewPreset()">
+      <mat-icon>add</mat-icon> Yeni Şablon Oluştur
+    </button>
+  </div>
+
+  <!-- Bütün alanların sığdırıldığı kompakt filtreleme kartı -->
+  <mat-card style="margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); background-color: #f8f9fa;">
+    <mat-card-content style="padding: 0;">
+      <!-- subscriptSizing="dynamic" kullanılarak alt boşluklar kaldırıldı, flex-wrap ve font-size küçültüldü -->
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 90px; font-size: 13px;">
+          <mat-label>ID (Ara)</mat-label>
+          <input matInput [(ngModel)]="topSearch.id" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 100px; font-size: 13px;">
+          <mat-label>Şablon Adı</mat-label>
+          <input matInput [(ngModel)]="topSearch.name" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 90px; font-size: 13px;">
+          <mat-label>Format</mat-label>
+          <mat-select [(ngModel)]="topSearch.format">
+            <mat-option value="">Tümü</mat-option>
+            <mat-option value="MP4">MP4</mat-option>
+            <mat-option value="MKV">MKV</mat-option>
+            <mat-option value="HLS">HLS</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 90px; font-size: 13px;">
+          <mat-label>V. Codec</mat-label>
+          <mat-select [(ngModel)]="topSearch.videoCodec">
+            <mat-option value="">Tümü</mat-option>
+            <mat-option value="H264">H264</mat-option>
+            <mat-option value="H265">H265</mat-option>
+            <mat-option value="AV1">AV1</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 90px; font-size: 13px;">
+          <mat-label>Çözünürlük</mat-label>
+          <input matInput [(ngModel)]="topSearch.resolution" placeholder="Örn: 1920" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 90px; font-size: 13px;">
+          <mat-label>V. Bitrate</mat-label>
+          <input matInput [(ngModel)]="topSearch.videoBitrate" placeholder="Kbps..." />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 90px; font-size: 13px;">
+          <mat-label>A. Codec</mat-label>
+          <mat-select [(ngModel)]="topSearch.audioCodec">
+            <mat-option value="">Tümü</mat-option>
+            <mat-option value="AAC">AAC</mat-option>
+            <mat-option value="OPUS">OPUS</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 90px; font-size: 13px;">
+          <mat-label>A. Bitrate</mat-label>
+          <mat-select [(ngModel)]="topSearch.audioBitrate">
+            <mat-option value="">Tümü</mat-option>
+            <mat-option value="64">64</mat-option>
+            <mat-option value="96">96</mat-option>
+            <mat-option value="128">128</mat-option>
+            <mat-option value="192">192</mat-option>
+            <mat-option value="256">256</mat-option>
+            <mat-option value="320">320</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 80px; font-size: 13px;">
+          <mat-label>FPS</mat-label>
+          <mat-select [(ngModel)]="topSearch.frameRate">
+            <mat-option value="">Tümü</mat-option>
+            <mat-option value="24">24</mat-option>
+            <mat-option value="25">25</mat-option>
+            <mat-option value="30">30</mat-option>
+            <mat-option value="48">48</mat-option>
+            <mat-option value="50">50</mat-option>
+            <mat-option value="60">60</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button mat-stroked-button (click)="applyTopFilters()" style="border-radius: 20px; color: #1976d2; border-color: #d0d0d0; padding: 0 16px; background-color: #fff;">
+          <mat-icon style="margin-right: 4px; font-size: 18px; width: 18px; height: 18px;">search</mat-icon> Filtrele
+        </button>
+        <button mat-stroked-button (click)="clearTopFilters()" style="border-radius: 20px; color: #1976d2; border-color: #d0d0d0; padding: 0 16px; background-color: #fff;">
+          <mat-icon style="margin-right: 4px; font-size: 18px; width: 18px; height: 18px;">close</mat-icon> Temizle
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <div style="overflow-x: auto;">
+    <table mat-table [dataSource]="dataSource" matSort class="mat-elevation-z8" style="width: 100%; min-width: 1000px; border-bottom-left-radius: 0; border-bottom-right-radius: 0;">
+
+      <ng-container matColumnDef="id">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> ID </th>
+        <td mat-cell *matCellDef="let element" style="color: #7f8c8d; font-size: 13px;" [matTooltip]="element.id">{{ element.id | slice:0:8 }}...</td>
+      </ng-container>
+
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Şablon Adı </th>
+        <td mat-cell *matCellDef="let element"> <b>{{element.name}}</b> </td>
+      </ng-container>
+
+      <ng-container matColumnDef="format">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Format </th>
+        <td mat-cell *matCellDef="let element"> {{element.format}} </td>
+      </ng-container>
+
+      <ng-container matColumnDef="videoCodec">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> V. Codec </th>
+        <td mat-cell *matCellDef="let element"> {{element.videoCodec}} </td>
+      </ng-container>
+
+      <ng-container matColumnDef="resolution">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Çözünürlük </th>
+        <td mat-cell *matCellDef="let element"> {{element.width}}x{{element.height}} </td>
+      </ng-container>
+
+      <ng-container matColumnDef="videoBitrate">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> V. Bitrate </th>
+        <td mat-cell *matCellDef="let element"> {{element.videoBitrate}} </td>
+      </ng-container>
+
+      <ng-container matColumnDef="audioCodec">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> A. Codec </th>
+        <td mat-cell *matCellDef="let element"> {{element.audioCodec}} </td>
+      </ng-container>
+
+      <ng-container matColumnDef="audioBitrate">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> A. Bitrate </th>
+        <td mat-cell *matCellDef="let element"> {{element.audioBitrate}} </td>
+      </ng-container>
+
+      <ng-container matColumnDef="frameRate">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> FPS </th>
+        <td mat-cell *matCellDef="let element"> {{element.frameRate}} </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef style="text-align: right;"> İşlemler </th>
+        <td mat-cell *matCellDef="let element" style="text-align: right;">
+          <button mat-icon-button color="primary" (click)="editPreset(element)" matTooltip="Düzenle"><mat-icon>edit</mat-icon></button>
+          <button mat-icon-button color="warn" (click)="deletePreset(element.id)" matTooltip="Sil"><mat-icon>delete</mat-icon></button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+    <mat-paginator [pageSizeOptions]="[10, 20, 30]" showFirstLastButtons class="mat-elevation-z8" style="border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;"></mat-paginator>
+  </div>
+</div>
+
+<ng-template #dialogTemplate>
+  <div (keydown.enter)="savePreset()">
+    <h2 mat-dialog-title>{{ isEditMode ? 'Şablonu Düzenle' : 'Tam Teşekküllü Şablon Oluştur' }}</h2>
+    <mat-dialog-content style="display: flex; flex-direction: column; gap: 15px; padding-top: 10px;">
+      <mat-form-field appearance="outline"><mat-label>Şablon Adı</mat-label><input matInput [(ngModel)]="newPresetData.name" name="presetName" /></mat-form-field>
+      <div style="display: flex; gap: 15px;">
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Video Codec</mat-label>
+          <mat-select [(ngModel)]="newPresetData.videoCodec" name="vCodec">
+            <mat-option value="H264">H.264 (AVC)</mat-option>
+            <mat-option value="H265">H.265 (HEVC)</mat-option>
+            <mat-option value="AV1">AV1</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Çözünürlük</mat-label>
+          <mat-select [(ngModel)]="formResolution" name="res">
+            <mat-option value="3840x2160">3840x2160 (4K UHD)</mat-option>
+            <mat-option value="2560x1440">2560x1440 (2K QHD)</mat-option>
+            <mat-option value="1920x1080">1920x1080 (1080p FHD)</mat-option>
+            <mat-option value="1280x720">1280x720 (720p HD)</mat-option>
+            <mat-option value="854x480">854x480 (480p SD)</mat-option>
+            <mat-option value="640x360">640x360 (360p Mobil)</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+      <div style="display: flex; gap: 15px;">
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Video Bitrate (Kbps)</mat-label>
+          <input matInput type="number" [(ngModel)]="newPresetData.videoBitrate" name="vBitrate" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Kare Hızı (FPS)</mat-label>
+          <mat-select [(ngModel)]="newPresetData.frameRate" name="fps">
+            <mat-option [value]="24">24</mat-option>
+            <mat-option [value]="25">25</mat-option>
+            <mat-option [value]="30">30</mat-option>
+            <mat-option [value]="48">48</mat-option>
+            <mat-option [value]="50">50</mat-option>
+            <mat-option [value]="60">60</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Format</mat-label>
+          <mat-select [(ngModel)]="newPresetData.format" name="format">
+            <mat-option value="MP4">MP4</mat-option>
+            <mat-option value="MKV">MKV</mat-option>
+            <mat-option value="HLS">HLS</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+      <div style="display: flex; gap: 15px;">
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Audio Codec</mat-label>
+          <mat-select [(ngModel)]="newPresetData.audioCodec" name="aCodec">
+            <mat-option value="AAC">AAC</mat-option>
+            <mat-option value="OPUS">OPUS</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Audio Bitrate (Kbps)</mat-label>
+          <mat-select [(ngModel)]="newPresetData.audioBitrate" name="aBitrate">
+            <mat-option [value]="64">64k</mat-option>
+            <mat-option [value]="96">96k</mat-option>
+            <mat-option [value]="128">128k</mat-option>
+            <mat-option [value]="192">192k</mat-option>
+            <mat-option [value]="256">256k</mat-option>
+            <mat-option [value]="320">320k</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close type="button">İptal</button>
+      <button mat-raised-button color="primary" (click)="savePreset()">Kaydet</button>
+    </mat-dialog-actions>
+  </div>
+</ng-template>

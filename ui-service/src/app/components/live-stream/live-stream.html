@@ -1,0 +1,213 @@
+<div style="margin: 20px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div style="display: flex; align-items: center; justify-content: center; background: #fce4ec; padding: 10px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+      <mat-icon style="font-size: 32px; width: 32px; height: 32px; color: #e91e63;">live_tv</mat-icon>
+    </div>
+    <button mat-raised-button style="background-color: #e91e63; color: white;" (click)="openStartDialog()">
+      <mat-icon>add_circle</mat-icon> Yeni Yayın Başlat
+    </button>
+  </div>
+
+  <!-- EKRAN BÖLME ALANI -->
+  <div style="display: flex; gap: 20px; align-items: flex-start;">
+
+    <!-- SOL TARAF: TABLO -->
+    <div [style.width]="showClipPanel ? '30%' : '100%'" style="transition: width 0.3s ease;">
+      <table mat-table [dataSource]="dataSource" class="mat-elevation-z8" style="width: 100%;">
+        <ng-container matColumnDef="streamName">
+          <th mat-header-cell *matHeaderCellDef> Yayın Adı </th>
+          <td mat-cell *matCellDef="let element"> <b>{{element.streamName}}</b> </td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef> Durum </th>
+          <td mat-cell *matCellDef="let element">
+            <span *ngIf="element.status === 'LIVE'" style="color: red; font-weight: bold;"><mat-icon style="font-size: 14px; vertical-align: middle;">sensors</mat-icon> CANLI</span>
+            <span *ngIf="element.status === 'STOPPED'" style="color: gray; font-weight: bold;"><mat-icon style="font-size: 14px; vertical-align: middle;">stop_circle</mat-icon> DURDU</span>
+            <span *ngIf="element.status === 'ERROR'" style="color: #d32f2f; font-weight: bold;"><mat-icon style="font-size: 14px; vertical-align: middle;">error</mat-icon> HATA</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef style="text-align: right;"> İşlemler </th>
+          <td mat-cell *matCellDef="let element" style="text-align: right;">
+            <button mat-icon-button color="primary" (click)="watchStream(element)" matTooltip="Yayını İzle">
+              <mat-icon>play_circle</mat-icon>
+            </button>
+            <button mat-icon-button style="color: #ff9800;" (click)="openClipPanel(element)" matTooltip="Yandan Klip Paneli Aç">
+              <mat-icon>vertical_split</mat-icon>
+            </button>
+            <button *ngIf="element.status === 'LIVE'" mat-icon-button color="warn" (click)="stopStream(element.id)" matTooltip="Yayını Durdur">
+              <mat-icon>stop</mat-icon>
+            </button>
+            <button mat-icon-button color="warn" (click)="deleteStream(element.id)" matTooltip="Yayın Kaydını Sil">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+    </div>
+
+    <!-- SAĞ TARAF: KLİP ALMA PANELİ (İKİ OYNATICILI) -->
+    <mat-card *ngIf="showClipPanel" style="width: 70%; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+        <h2 style="margin: 0; color: #ff9800; display: flex; align-items: center;"><mat-icon style="margin-right: 8px;">content_cut</mat-icon> Canlı Yayından Kesit Al</h2>
+        <button mat-icon-button (click)="closeClipPanel()"><mat-icon>close</mat-icon></button>
+      </div>
+
+      <!-- İkiye bölünmüş önizleme -->
+      <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <div style="flex: 1;">
+          <div style="font-size: 12px; font-weight: 600; color: #388e3c; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+            <mat-icon style="font-size: 16px; width: 16px; height: 16px;">first_page</mat-icon> BAŞLANGIÇ
+          </div>
+          <div style="background: #000; border-radius: 4px; overflow: hidden;">
+            <video id="clip-video-start" controls muted
+                   style="width: 100%; max-height: 280px; display: block; outline: none;"></video>
+          </div>
+        </div>
+
+        <div style="flex: 1;">
+          <div style="font-size: 12px; font-weight: 600; color: #d32f2f; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+            <mat-icon style="font-size: 16px; width: 16px; height: 16px;">last_page</mat-icon> BİTİŞ
+          </div>
+          <div style="background: #000; border-radius: 4px; overflow: hidden;">
+            <video id="clip-video-end" controls muted
+                   style="width: 100%; max-height: 280px; display: block; outline: none;"></video>
+          </div>
+        </div>
+      </div>
+
+      <p style="font-size: 13px; color: gray; margin-bottom: 5px;">Soldaki tutamak başlangıç videosunu, sağdaki tutamak bitiş videosunu hareket ettirir.</p>
+
+      <!-- Kaydırma Çubuğu -->
+      <div style="margin: 10px 0; padding: 0 10px;">
+        <mat-slider class="clip-slider" style="width: 100%; margin: 0;" min="0" [max]="maxStreamDuration" step="1">
+          <input matSliderStartThumb [(ngModel)]="clipRequest.startSeconds" (ngModelChange)="onSliderChange()">
+          <input matSliderEndThumb [(ngModel)]="clipRequest.endSeconds" (ngModelChange)="onSliderChange()">
+        </mat-slider>
+
+        <div class="clip-time-labels">
+          <span class="clip-time-chip">
+            <span class="dot" style="background: #388e3c;"></span>{{ startTimeRealStr }}
+          </span>
+          <span class="clip-time-chip">
+            <span class="dot" style="background: #d32f2f;"></span>{{ endTimeRealStr }}
+          </span>
+        </div>
+      </div>
+
+      <!-- El İle Girdi Kutuları -->
+      <div style="display: flex; gap: 10px; margin-top: 14px;">
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Başlangıç (Gerçek Saat)</mat-label>
+          <input matInput type="text" placeholder="Örn: 10:45:00" [ngModel]="startTimeRealStr" (ngModelChange)="onStartTimeStrChange($event)" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Bitiş (Gerçek Saat)</mat-label>
+          <input matInput type="text" placeholder="Örn: 11:00:00" [ngModel]="endTimeRealStr" (ngModelChange)="onEndTimeStrChange($event)" />
+        </mat-form-field>
+      </div>
+
+      <mat-form-field appearance="outline" style="width: 100%;">
+        <mat-label>Uygulanacak Şablon *</mat-label>
+        <mat-select [(ngModel)]="clipRequest.presetId">
+          <mat-option *ngFor="let p of presets" [value]="p.id">
+            {{ p.name }} ({{ p.format }} - {{ p.width }}x{{ p.height }})
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-progress-bar *ngIf="isClipping" mode="indeterminate" color="accent"></mat-progress-bar>
+      <div style="text-align: right; margin-top: 10px;">
+        <button mat-button (click)="closeClipPanel()" [disabled]="isClipping" style="margin-right: 10px;">İptal</button>
+        <button mat-raised-button style="background-color: #ff9800; color: white;" (click)="takeClip()" [disabled]="!clipRequest.presetId || isClipping">Klibi Oluştur</button>
+      </div>
+    </mat-card>
+  </div>
+</div>
+
+<!-- Yeni Yayın Başlat Modalı -->
+<ng-template #liveStreamDialog>
+  <h2 mat-dialog-title><mat-icon style="vertical-align: middle; color: #e91e63; margin-right: 8px;">live_tv</mat-icon> Yeni Canlı Yayın</h2>
+  <mat-dialog-content style="display: flex; flex-direction: column; gap: 15px; padding-top: 10px;">
+    <mat-form-field appearance="outline">
+      <mat-label>Yayın Adı</mat-label>
+      <input matInput [(ngModel)]="liveStreamRequest.streamName" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Kaynak URL</mat-label>
+      <input matInput [(ngModel)]="liveStreamRequest.inputUrl" />
+    </mat-form-field>
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button mat-button mat-dialog-close>İptal</button>
+    <button mat-raised-button style="background-color: #e91e63; color: white;" (click)="startStream()">Başlat</button>
+  </mat-dialog-actions>
+</ng-template>
+
+<!-- İzleme Modalı: native kontroller kapalı, kendi canlı yayın çubuğumuz -->
+<ng-template #watchDialog>
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background-color: #f5f7fa; border-bottom: 1px solid #e0e0e0;">
+    <h3 style="margin: 0; font-weight: 500; font-size: 16px; color: #d32f2f; display: flex; align-items: center; gap: 8px;">
+      <mat-icon style="vertical-align: middle;">sensors</mat-icon> {{ currentStreamName }}
+    </h3>
+    <button mat-icon-button mat-dialog-close matTooltip="Kapat"><mat-icon>close</mat-icon></button>
+  </div>
+
+  <mat-dialog-content style="padding: 0; background: #000; overflow: hidden; max-height: none;">
+    <div id="live-video-wrapper" style="position: relative; background: #000; display: flex; flex-direction: column;">
+
+      <video id="live-video" autoplay playsinline muted
+             style="width: 100%; max-height: 60vh; display: block; outline: none; background: #000;"></video>
+
+      <!-- Özel Kontrol Çubuğu -->
+      <div style="display: flex; flex-direction: column; gap: 4px; padding: 8px 14px; background: #111; flex-shrink: 0;">
+
+        <input type="range" class="live-seek-bar"
+               min="0" [max]="watchSeekRange"
+               [value]="watchSliderSeconds"
+               (input)="onWatchSeekInput($event)"
+               (mousedown)="onWatchSeekStart()" (mouseup)="onWatchSeekEnd()"
+               (touchstart)="onWatchSeekStart()" (touchend)="onWatchSeekEnd()" />
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button mat-icon-button (click)="toggleWatchPlay()" style="color: #fff;"
+                  [matTooltip]="isWatchPlaying ? 'Duraklat' : 'Oynat'">
+            <mat-icon>{{ isWatchPlaying ? 'pause' : 'play_arrow' }}</mat-icon>
+          </button>
+
+          <button mat-icon-button (click)="toggleWatchMute()" style="color: #fff;"
+                  [matTooltip]="isWatchMuted ? 'Sesi Aç' : 'Sesi Kapat'">
+            <mat-icon>{{ isWatchMuted ? 'volume_off' : 'volume_up' }}</mat-icon>
+          </button>
+
+          <div style="flex: 1;"></div>
+
+          <span *ngIf="isWatchLive" (click)="goToLive()"
+                [matTooltip]="isBehindLive ? 'Canlı yayına dön' : 'Canlı yayındasınız'"
+                style="display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none;">
+            <span style="width: 8px; height: 8px; border-radius: 50%;"
+                  [style.background]="isBehindLive ? '#9e9e9e' : '#d32f2f'"></span>
+            <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.5px;"
+                  [style.color]="isBehindLive ? '#9e9e9e' : '#fff'">CANLI</span>
+          </span>
+
+          <span *ngIf="!isWatchLive"
+                style="color: #9e9e9e; font-size: 12px; font-weight: 600;">YAYIN SONA ERDİ</span>
+
+          <span style="color: #fff; font-size: 13px; font-variant-numeric: tabular-nums;">
+            {{ watchElapsedStr }}
+          </span>
+
+          <button mat-icon-button (click)="toggleWatchFullscreen()" style="color: #fff;" matTooltip="Tam Ekran">
+            <mat-icon>fullscreen</mat-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+  </mat-dialog-content>
+</ng-template>

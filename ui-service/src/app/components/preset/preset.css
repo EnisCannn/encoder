@@ -1,0 +1,48 @@
+/* =========================================
+   MODERN TABLO TASARIMI
+   ========================================= */
+
+/* 1. Tablo Başlık Satırının Arka Planı */
+.mat-mdc-header-row,
+.mat-header-row {
+  background-color: #eef2f6 !important; /* Kurumsal, yumuşak bir mavi/gri tonu */
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+/* 2. Sütun Başlıklarının Yazı Tipi ve Çizgileri */
+.mat-mdc-header-cell,
+.mat-header-cell {
+  color: #2c3e50 !important; /* Koyu, tok bir lacivert/gri */
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  letter-spacing: 0.3px;
+  border-right: 1px solid #dcdcdc; /* Sütunları ayıran ince, şık bir çizgi */
+  padding: 0 16px !important;
+}
+
+/* En sağdaki (İşlemler) sütununun sağındaki çizgiyi kaldır */
+.mat-mdc-header-cell:last-child,
+.mat-header-cell:last-child {
+  border-right: none;
+}
+
+/* 3. Tablo Satırlarına Vurgu (Hover) Efekti */
+.mat-mdc-row,
+.mat-row {
+  transition: background-color 0.2s ease-in-out;
+}
+
+.mat-mdc-row:hover,
+.mat-row:hover {
+  background-color: #f5f7fa !important; /* Fare ile üzerine gelince hafifçe aydınlansın */
+  cursor: default;
+}
+
+/* 4. Tablonun Dış Çerçevesini Yuvarlatma (Daha yumuşak bir görünüm) */
+table {
+  border-radius: 8px;
+  overflow: hidden;
+  border-collapse: separate;
+  border-spacing: 0;
+}

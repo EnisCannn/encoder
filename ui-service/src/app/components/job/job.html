@@ -1,0 +1,252 @@
+<div style="margin: 20px;">
+  <!-- Başlık ve Kontrol Butonları -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div matTooltip="Dönüştürme İşlemleri" style="display: flex; align-items: center; justify-content: center; background: #eef2f6; padding: 10px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+      <mat-icon style="font-size: 32px; width: 32px; height: 32px; color: #1976d2;">switch_video</mat-icon>
+    </div>
+    <button mat-raised-button color="primary" (click)="openUploadDialog()">
+      <mat-icon>cloud_upload</mat-icon> Yeni Video Yükle
+    </button>
+  </div>
+
+  <!-- Arka planda yükleme göstergesi -->
+  <mat-card *ngIf="isBackgroundUploading" style="margin-bottom: 16px; padding: 12px 16px; border-left: 4px solid #1976d2; border-radius: 6px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <mat-icon style="color: #1976d2;">cloud_upload</mat-icon>
+      <div style="flex: 1;">
+        <div style="font-size: 13px; font-weight: 500; color: #333;">
+          Arka planda yükleniyor: {{ backgroundUploadName }}
+        </div>
+        <div style="font-size: 12px; color: gray;">Bu sırada uygulamayı kullanmaya devam edebilirsiniz.</div>
+      </div>
+    </div>
+    <mat-progress-bar mode="indeterminate" style="margin-top: 8px;"></mat-progress-bar>
+  </mat-card>
+
+  <!-- Üst Filtreleme Çubuğu -->
+  <mat-card style="margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+      <mat-form-field appearance="outline" style="flex: 1; min-width: 150px;">
+        <mat-label>ID'ye Göre Ara</mat-label>
+        <input matInput [(ngModel)]="topSearch.id" placeholder="ID Girin...">
+      </mat-form-field>
+      <mat-form-field appearance="outline" style="flex: 1; min-width: 150px;">
+        <mat-label>Video Adı</mat-label>
+        <input matInput [(ngModel)]="topSearch.inputFileName" placeholder="Dosya adı...">
+      </mat-form-field>
+      <mat-form-field appearance="outline" style="flex: 1; min-width: 150px;">
+        <mat-label>Uygulanan Şablon</mat-label>
+        <input matInput [(ngModel)]="topSearch.presetName" placeholder="Şablon ara...">
+      </mat-form-field>
+      <mat-form-field appearance="outline" style="flex: 1; min-width: 150px;">
+        <mat-label>Durum</mat-label>
+        <mat-select [(ngModel)]="topSearch.status">
+          <mat-option value="">Tümü</mat-option>
+          <mat-option value="COMPLETED">Tamamlandı</mat-option>
+          <mat-option value="PROCESSING">İşleniyor</mat-option>
+          <mat-option value="FAILED">Başarısız</mat-option>
+          <mat-option value="PENDING">Bekliyor</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+        <button mat-raised-button color="primary" (click)="applyTopFilters()"><mat-icon>search</mat-icon> Filtrele</button>
+        <button mat-stroked-button color="warn" (click)="clearTopFilters()"><mat-icon>clear</mat-icon> Temizle</button>
+      </div>
+    </div>
+  </mat-card>
+
+  <!-- EKRAN BÖLME ALANI (Tablo + Klip Paneli) -->
+  <div style="display: flex; gap: 20px; align-items: flex-start;">
+
+    <!-- SOL TARAF: TABLO -->
+    <div [style.width]="showClipPanel ? '30%' : '100%'" style="transition: width 0.3s ease; overflow-x: auto;">
+      <table mat-table [dataSource]="dataSource" matSort class="mat-elevation-z8" style="width: 100%; border-bottom-left-radius: 0; border-bottom-right-radius: 0;" [trackBy]="trackById">
+
+        <ng-container matColumnDef="id">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header> ID </th>
+          <td mat-cell *matCellDef="let element" style="color: #7f8c8d; font-size: 13px;" [matTooltip]="element.id">
+            {{ element.id | slice:0:8 }}...
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="inputFileName">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header> Video Adı </th>
+          <td mat-cell *matCellDef="let element"> <b>{{element.inputFileName}}</b> </td>
+        </ng-container>
+
+        <ng-container matColumnDef="presetName">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header> Uygulanan Şablon </th>
+          <td mat-cell *matCellDef="let element">
+            <span *ngIf="element.preset" style="background: #e3f2fd; color: #1565c0; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">
+              {{element.preset.name}}
+            </span>
+            <span *ngIf="!element.preset" style="color: gray; font-style: italic;">Şablon Yok</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header> Durum </th>
+          <td mat-cell *matCellDef="let element">
+            <span *ngIf="element.status === 'COMPLETED'" style="color: green; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+              <mat-icon style="font-size: 18px;">check_circle</mat-icon> Tamamlandı
+            </span>
+            <span *ngIf="element.status === 'FAILED'" style="color: red; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+              <mat-icon style="font-size: 18px;">error</mat-icon> Başarısız
+            </span>
+            <span *ngIf="element.status === 'PROCESSING'" style="color: orange; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+              <mat-icon style="font-size: 18px;" class="spin">sync</mat-icon> İşleniyor
+            </span>
+            <span *ngIf="element.status === 'PENDING'" style="color: gray; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+              <mat-icon style="font-size: 18px;">hourglass_empty</mat-icon> Bekliyor
+            </span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="progress">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header> İlerleme </th>
+          <td mat-cell *matCellDef="let element" style="width: 250px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <mat-progress-bar mode="determinate" [value]="element.progress" [color]="element.status === 'COMPLETED' ? 'primary' : (element.status === 'FAILED' ? 'warn' : 'accent')" style="flex: 1; height: 8px; border-radius: 4px;"></mat-progress-bar>
+              <span style="font-weight: bold; font-size: 12px; width: 40px; text-align: right;">%{{element.progress}}</span>
+            </div>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef style="text-align: right;"> İşlemler </th>
+          <td mat-cell *matCellDef="let element" style="text-align: right;">
+            <button *ngIf="element.status === 'COMPLETED'" mat-icon-button style="color: #ff9800;" (click)="openClipPanel(element)" matTooltip="Videodan Klip Kes">
+              <mat-icon>content_cut</mat-icon>
+            </button>
+            <button *ngIf="element.status === 'COMPLETED'" mat-icon-button color="primary" (click)="playVideo(element)" matTooltip="Videoyu İzle">
+              <mat-icon>play_circle</mat-icon>
+            </button>
+            <button *ngIf="element.status === 'COMPLETED'" mat-icon-button style="color: #4caf50;" (click)="downloadVideo(element)" matTooltip="Bilgisayara İndir">
+              <mat-icon>download</mat-icon>
+            </button>
+            <button mat-icon-button color="warn" (click)="deleteJob(element.id)" matTooltip="Görevi İptal Et / Sil">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+      <mat-paginator [pageSizeOptions]="[10, 20, 30]" [pageSize]="10" showFirstLastButtons class="mat-elevation-z8" style="border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;"></mat-paginator>
+    </div>
+
+    <!-- SAĞ TARAF: KLİP ALMA PANELİ (İKİ OYNATICILI) -->
+    <mat-card *ngIf="showClipPanel" style="width: 70%; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
+        <h2 style="margin: 0; color: #ff9800; display: flex; align-items: center; font-size: 18px;">
+          <mat-icon style="margin-right: 8px;">content_cut</mat-icon> Videodan Klip Al
+        </h2>
+        <button mat-icon-button (click)="closeClipPanel()" matTooltip="Kapat"><mat-icon>close</mat-icon></button>
+      </div>
+
+      <p style="font-size: 12px; color: gray; margin: 0 0 10px 0;">{{ clipVideoName }}</p>
+
+      <!-- İkiye bölünmüş önizleme -->
+      <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <div style="flex: 1;">
+          <div style="font-size: 12px; font-weight: 600; color: #388e3c; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+            <mat-icon style="font-size: 16px; width: 16px; height: 16px;">first_page</mat-icon> BAŞLANGIÇ
+          </div>
+          <div style="background: #000; border-radius: 4px; overflow: hidden;">
+            <video id="job-clip-video-start" [src]="clipVideoUrl" controls muted
+                   style="width: 100%; max-height: 280px; display: block; outline: none;"></video>
+          </div>
+        </div>
+
+        <div style="flex: 1;">
+          <div style="font-size: 12px; font-weight: 600; color: #d32f2f; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+            <mat-icon style="font-size: 16px; width: 16px; height: 16px;">last_page</mat-icon> BİTİŞ
+          </div>
+          <div style="background: #000; border-radius: 4px; overflow: hidden;">
+            <video id="job-clip-video-end" [src]="clipVideoUrl" controls muted
+                   style="width: 100%; max-height: 280px; display: block; outline: none;"></video>
+          </div>
+        </div>
+      </div>
+
+      <p style="font-size: 13px; color: gray; margin-bottom: 5px;">Soldaki tutamak başlangıç videosunu, sağdaki tutamak bitiş videosunu hareket ettirir.</p>
+
+      <div style="margin: 10px 0; padding: 0 10px;">
+        <mat-slider class="clip-slider" style="width: 100%; margin: 0;" min="0" [max]="videoDuration" step="1">
+          <input matSliderStartThumb [(ngModel)]="videoClipRequest.startSeconds" (ngModelChange)="onClipSliderChange()">
+          <input matSliderEndThumb [(ngModel)]="videoClipRequest.endSeconds" (ngModelChange)="onClipSliderChange()">
+        </mat-slider>
+
+        <div class="clip-time-labels">
+          <span class="clip-time-chip">
+            <span class="dot" style="background: #388e3c;"></span>{{ clipStartStr }}
+          </span>
+          <span class="clip-time-chip">
+            <span class="dot" style="background: #d32f2f;"></span>{{ clipEndStr }}
+          </span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 14px;">
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Başlangıç (SS:DD:SN)</mat-label>
+          <input matInput type="text" placeholder="Örn: 00:00:10" [ngModel]="clipStartStr" (ngModelChange)="onClipStartStrChange($event)" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="flex: 1;">
+          <mat-label>Bitiş (SS:DD:SN)</mat-label>
+          <input matInput type="text" placeholder="Örn: 00:01:30" [ngModel]="clipEndStr" (ngModelChange)="onClipEndStrChange($event)" />
+        </mat-form-field>
+      </div>
+
+      <mat-progress-bar *ngIf="isVideoClipping" mode="indeterminate" color="accent"></mat-progress-bar>
+      <p *ngIf="isVideoClipping" style="color: #ff9800; font-size: 12px; text-align: center; margin: 5px 0 0 0;">Klip kesiliyor, lütfen bekleyin...</p>
+
+      <div style="text-align: right; margin-top: 10px;">
+        <button mat-button (click)="closeClipPanel()" [disabled]="isVideoClipping" style="margin-right: 10px;">İptal</button>
+        <button mat-raised-button style="background-color: #ff9800; color: white;" (click)="takeVideoClip()" [disabled]="isVideoClipping">Klibi Oluştur</button>
+      </div>
+    </mat-card>
+  </div>
+</div>
+
+<!-- Upload Modalı: Başlat'a basınca hemen kapanır, yükleme arka planda sürer -->
+<ng-template #uploadDialog>
+  <h2 mat-dialog-title><mat-icon style="vertical-align: middle; color: #1976d2; margin-right: 5px;">cloud_upload</mat-icon> Yeni Video İşlemi Başlat</h2>
+  <mat-dialog-content style="display: flex; flex-direction: column; gap: 15px; padding-top: 10px;">
+    <div>
+      <label style="font-weight: 500; font-size: 13px; margin-bottom: 5px; display: block; color: #333;">1. Ana Video Dosyası Seçin <span style="color: red;">*</span></label>
+      <input type="file" (change)="onFileSelected($event)" accept="video/mp4,video/mkv,video/avi,video/quicktime,.mov" style="display: block; width: 100%; border: 1px solid #ccc; padding: 8px; border-radius: 4px; font-size: 12px;" />
+    </div>
+    <div>
+      <label style="font-weight: 500; font-size: 13px; margin-bottom: 5px; display: block; color: #555;">2. Alt Yazı Dosyası (Opsiyonel)</label>
+      <input type="file" (change)="onSubtitleSelected($event)" accept=".srt,.vtt" style="display: block; width: 100%; border: 1px dashed #999; padding: 8px; border-radius: 4px; font-size: 12px; background-color: #fafafa;" />
+    </div>
+    <div>
+      <label style="font-weight: 500; font-size: 13px; margin-bottom: 5px; display: block; color: #555;">3. Dublaj / Ses Dosyası (Opsiyonel)</label>
+      <input type="file" (change)="onDubbingSelected($event)" accept="audio/mp3,audio/wav,audio/aac,audio/m4a" style="display: block; width: 100%; border: 1px dashed #999; padding: 8px; border-radius: 4px; font-size: 12px; background-color: #fafafa;" />
+    </div>
+    <mat-form-field appearance="outline" style="width: 100%; margin-top: 5px;">
+      <mat-label>4. Uygulanacak Şablon <span style="color: red;">*</span></mat-label>
+      <mat-select [(ngModel)]="selectedPresetId">
+        <mat-option *ngFor="let p of presets" [value]="p.id">{{ p.name }} ({{ p.format }} - {{ p.width }}x{{ p.height }})</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <p style="font-size: 12px; color: gray; margin: 0;">Başlat'a bastığınızda yükleme arka planda devam eder, beklemenize gerek yoktur.</p>
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button mat-button mat-dialog-close>İptal</button>
+    <button mat-raised-button color="primary" (click)="startUploadAndJob()" [disabled]="!selectedFile || !selectedPresetId">Başlat</button>
+  </mat-dialog-actions>
+</ng-template>
+
+<ng-template #videoDialog>
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background-color: #f5f7fa; border-bottom: 1px solid #e0e0e0;">
+    <h3 style="margin: 0; font-weight: 500; font-size: 16px; color: #333;"><mat-icon style="vertical-align: middle; margin-right: 5px; color: #1976d2;">movie</mat-icon> {{ currentVideoName }}</h3>
+    <button mat-icon-button mat-dialog-close matTooltip="Kapat"><mat-icon>close</mat-icon></button>
+  </div>
+  <mat-dialog-content style="padding: 0; background: #000; display: flex; justify-content: center; align-items: center; overflow: hidden; min-height: 400px;">
+    <video [src]="currentVideoUrl" controls autoplay style="width: 100%; max-height: 70vh; outline: none;">Tarayıcınız desteklemiyor.</video>
+  </mat-dialog-content>
+</ng-template>

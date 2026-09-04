@@ -1,0 +1,63 @@
+/* Menüyü ekranın en üstüne sabitler ve KESİN OLARAK MAVİ yapar */
+.header-navbar {
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background-color: #1976d2 !important; /* DÜZELTME: Kurumsal koyu mavi arka plan */
+  color: white !important; /* Başlık rengini beyaz yaptık */
+}
+
+/* Sol taraftaki başlık */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  font-size: 18px;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.nav-links {
+  display: flex;
+  gap: 15px;
+}
+
+/* Buton haline getirilmiş linklerin normal görünümü */
+.nav-links a {
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+  border-radius: 6px;
+  padding: 0 16px;
+  color: rgba(255, 255, 255, 0.85) !important; /* Beyaz yazılar artık mavi arka planda parlayacak */
+  transition: all 0.2s ease-in-out;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* Linklerin üzerine gelindiğindeki parlama */
+.nav-links a:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff !important;
+}
+
+/* Hangi sayfadaysak o linki belirginleştirme (Aktif Sayfa Zekası) */
+.active-link {
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  font-weight: 500;
+}
+
+/* İçeriklerin çok fazla yayılmasını engelleyip ortalayan taşıyıcı */
+.content-container {
+  padding: 10px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
