@@ -15,7 +15,9 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/encoder_db
+      - DB_URL=jdbc:postgresql://host.docker.internal:5432/encoder_db
+      - DB_USERNAME=${DB_USERNAME:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD .env dosyasinda tanimli olmali}
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
     volumes:
       # Windows klasörünü Linux'un kök dizinindeki /video_test klasörüne bağlıyoruz
@@ -30,7 +32,9 @@ services:
     deploy:
       replicas: 2
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/encoder_db
+      - DB_URL=jdbc:postgresql://host.docker.internal:5432/encoder_db
+      - DB_USERNAME=${DB_USERNAME:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD .env dosyasinda tanimli olmali}
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
     volumes:
       # İşçi servisler için de aynı bağlantıyı kuruyoruz
