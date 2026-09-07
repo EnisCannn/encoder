@@ -1,0 +1,115 @@
+<div style="margin: 20px;">
+
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div matTooltip="Kayıtlı Paketler" style="display: flex; align-items: center; justify-content: center; background: #eef2f6; padding: 10px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+      <mat-icon style="font-size: 32px; width: 32px; height: 32px; color: #1976d2;">layers</mat-icon>
+    </div>
+    <button mat-raised-button color="primary" (click)="addNewSet()">
+      <mat-icon>add</mat-icon> Yeni Paket Oluştur
+    </button>
+  </div>
+
+  <mat-card style="margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); background-color: #f8f9fa;">
+    <mat-card-content style="padding: 0;">
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 140px; font-size: 13px;">
+          <mat-label>Paket Adı</mat-label>
+          <input matInput [(ngModel)]="search.name" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 140px; font-size: 13px;">
+          <mat-label>İçindeki Şablon</mat-label>
+          <input matInput [(ngModel)]="search.preset" placeholder="Örn: 720p" />
+        </mat-form-field>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 15px;">
+        <button mat-stroked-button (click)="applyFilters()" style="border-radius: 20px; color: #1976d2; border-color: #d0d0d0; padding: 0 16px; background-color: #fff;">
+          <mat-icon style="margin-right: 4px; font-size: 18px; width: 18px; height: 18px;">search</mat-icon> Filtrele
+        </button>
+        <button mat-stroked-button (click)="clearFilters()" style="border-radius: 20px; color: #1976d2; border-color: #d0d0d0; padding: 0 16px; background-color: #fff;">
+          <mat-icon style="margin-right: 4px; font-size: 18px; width: 18px; height: 18px;">close</mat-icon> Temizle
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <div style="overflow-x: auto;">
+    <table mat-table [dataSource]="dataSource" matSort class="mat-elevation-z8" style="width: 100%; min-width: 900px;">
+
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Paket Adı </th>
+        <td mat-cell *matCellDef="let element"> <b>{{ element.name }}</b> </td>
+      </ng-container>
+
+      <ng-container matColumnDef="description">
+        <th mat-header-cell *matHeaderCellDef> Açıklama </th>
+        <td mat-cell *matCellDef="let element" style="color: #7f8c8d;"> {{ element.description || '—' }} </td>
+      </ng-container>
+
+      <ng-container matColumnDef="presetCount">
+        <th mat-header-cell *matHeaderCellDef> Şablon Sayısı </th>
+        <td mat-cell *matCellDef="let element" style="text-align: center;"> {{ element.presets.length }} </td>
+      </ng-container>
+
+      <ng-container matColumnDef="presets">
+        <th mat-header-cell *matHeaderCellDef> İçerik (Kalite Basamakları) </th>
+        <td mat-cell *matCellDef="let element" style="padding-top: 8px; padding-bottom: 8px;">
+          <mat-chip-set>
+            @for (p of element.presets; track p.id) {
+              <mat-chip [matTooltip]="p.name + ' • ' + p.videoBitrate + ' kbps • ' + p.videoCodec">
+                {{ resolutionLabel(p) }}
+              </mat-chip>
+            }
+          </mat-chip-set>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef style="text-align: right;"> İşlemler </th>
+        <td mat-cell *matCellDef="let element" style="text-align: right;">
+          <button mat-icon-button color="primary" (click)="editSet(element)" matTooltip="Düzenle"><mat-icon>edit</mat-icon></button>
+          <button mat-icon-button color="warn" (click)="deleteSet(element.id)" matTooltip="Sil"><mat-icon>delete</mat-icon></button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+    <mat-paginator [pageSizeOptions]="[10, 20, 30]" showFirstLastButtons class="mat-elevation-z8"></mat-paginator>
+  </div>
+</div>
+
+<ng-template #dialogTemplate>
+  <div>
+    <h2 mat-dialog-title>{{ isEditMode ? 'Paketi Düzenle' : 'Yeni Encode Paketi' }}</h2>
+    <mat-dialog-content style="display: flex; flex-direction: column; gap: 15px; padding-top: 10px;">
+
+      <mat-form-field appearance="outline">
+        <mat-label>Paket Adı</mat-label>
+        <input matInput [(ngModel)]="formData.name" name="setName" placeholder="Örn: Web Paketi" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Açıklama</mat-label>
+        <input matInput [(ngModel)]="formData.description" name="setDescription" placeholder="Örn: 1080p / 720p / 480p adaptif set" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Şablonlar (çoklu seçim)</mat-label>
+        <mat-select [(ngModel)]="formData.presetIds" name="presetIds" multiple>
+          @for (p of availablePresets; track p.id) {
+            <mat-option [value]="p.id">
+              {{ p.name }} — {{ p.width }}x{{ p.height }} • {{ p.videoBitrate }} kbps
+            </mat-option>
+          }
+        </mat-select>
+        <mat-hint>Seçilen şablonlar çözünürlüğe göre büyükten küçüğe sıralanır.</mat-hint>
+      </mat-form-field>
+
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close type="button">İptal</button>
+      <button mat-raised-button color="primary" (click)="saveSet()">Kaydet</button>
+    </mat-dialog-actions>
+  </div>
+</ng-template>

@@ -9,8 +9,17 @@ export interface Job {
   outputFileName?: string;
   status: string;
   progress: number;
-  preset?: { name: string };
+  preset?: { name: string; width?: number; height?: number };
   videoId?: string;
+  createdAt?: string;
+  // Paket modunda dolu olur: aynı yüklemeden doğan işleri birbirine bağlar
+  batchId?: string | null;
+  encodeSetId?: string | null;
+  // Altyazı: NONE | BURN | SIDECAR
+  subtitleMode?: string;
+  subtitleVttFileName?: string | null;
+  subtitleLanguage?: string | null;
+  subtitleLabel?: string | null;
 }
 
 @Injectable({
@@ -35,8 +44,27 @@ export class JobService {
     return this.http.post<any>(this.videoApiUrl, formData);
   }
 
-  createJob(formData: FormData): Observable<Job> {
-    return this.http.post<Job>(this.jobApiUrl, formData);
+  // Tekli modda tek elemanlı, paket modunda setteki preset sayısı kadar iş döner
+  createJob(formData: FormData): Observable<Job[]> {
+    return this.http.post<Job[]>(this.jobApiUrl, formData);
+  }
+
+  getJobsByBatch(batchId: string): Observable<Job[]> {
+    return this.http.get<Job[]>(`${this.jobApiUrl}/batch/${batchId}`);
+  }
+
+  // Paketin HLS master playlist adresi ve hazir olup olmadigi
+  getBatchHls(batchId: string): Observable<{ masterPath: string; ready: string }> {
+    return this.http.get<{ masterPath: string; ready: string }>(`${this.jobApiUrl}/batch/${batchId}/hls`);
+  }
+
+  getBatchSmilUrl(batchId: string): string {
+    return `${this.jobApiUrl}/batch/${batchId}/smil`;
+  }
+
+  // SMIL manifestinin ham XML'i; oynatici kalite ve altyazi listesini bundan kurar
+  getBatchSmil(batchId: string): Observable<string> {
+    return this.http.get(`${this.jobApiUrl}/batch/${batchId}/smil`, { responseType: 'text' });
   }
 
   deleteJob(id: string): Observable<void> {

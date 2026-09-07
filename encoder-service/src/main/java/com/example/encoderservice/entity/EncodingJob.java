@@ -1,5 +1,6 @@
 package com.example.encoderservice.entity;
 
+import com.example.encoderservice.entity.enums.SubtitleMode;
 import com.example.encoderservice.entity.EncodingPreset;
 import com.example.encoderservice.entity.JobStatus;
 import com.example.encoderservice.entity.Video;
@@ -27,8 +28,17 @@ public class EncodingJob {
     private String outputFileName;
     private String outputPath;
     // EncodingJob.java içerisine eklenecek alanlar
-    private String subtitlePath; // Örn: "C:/video_test/altyazi.srt"
+    private String subtitlePath; // Yüklenen kaynak dosya. Örn: "C:/video_test/assets/sub_xxx.srt"
     private String dubbingPath;  // Örn: "C:/video_test/dublaj.mp3"
+
+    @Enumerated(EnumType.STRING)
+    private SubtitleMode subtitleMode = SubtitleMode.NONE;
+
+    // Çıktı klasörüne göre göreli .vtt yolu (SIDECAR modunda main-service doldurur)
+    private String subtitleVttFileName;
+
+    private String subtitleLanguage;
+    private String subtitleLabel;
 
 
     @Enumerated(EnumType.STRING)
@@ -42,6 +52,12 @@ public class EncodingJob {
     private Instant startedAt;
     private Instant completedAt;
     private Instant createdAt = Instant.now();
+
+    // Aynı EncodeSet'ten doğan işleri gruplayan kimlik (tekli işlerde null)
+    private UUID batchId;
+
+    // İşin hangi paketten doğduğu (tekli işlerde null)
+    private UUID encodeSetId;
 
     @ManyToOne
     @JoinColumn(name = "preset_id")

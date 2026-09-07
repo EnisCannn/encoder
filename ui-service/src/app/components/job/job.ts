@@ -21,9 +21,14 @@ import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCardModule } from '@angular/material/card';
 import { MatPaginatorModule, MatPaginator } from '@angular/material/paginator';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatRadioModule } from '@angular/material/radio';
+import { MatMenuModule } from '@angular/material/menu';
 
 import { JobService } from '../../services/job.service';
 import { PresetService } from '../../services/preset.service';
+import { EncodeSet, EncodeSetService } from '../../services/encode-set.service';
 import { Preset } from '../preset/preset';
 import { Subscription, timer } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
@@ -34,8 +39,15 @@ export interface Job {
   outputFileName?: string;
   status: string;
   progress: number;
-  preset?: { name: string };
+  preset?: { name: string; width?: number; height?: number };
   videoId?: string;
+  createdAt?: string;
+  batchId?: string | null;
+  encodeSetId?: string | null;
+  subtitleMode?: string;
+  subtitleVttFileName?: string | null;
+  subtitleLanguage?: string | null;
+  subtitleLabel?: string | null;
 }
 
 @Component({
@@ -57,6 +69,10 @@ export interface Job {
     MatTooltipModule,
     MatCardModule,
     MatPaginatorModule,
+    MatChipsModule,
+    MatButtonToggleModule,
+    MatRadioModule,
+    MatMenuModule,
   ],
   templateUrl: './job.html',
   styleUrl: './job.css',
@@ -65,6 +81,7 @@ export class JobComponent implements OnInit, OnDestroy {
   displayedColumns: string[] = [
     'id',
     'inputFileName',
+    'batch',
     'presetName',
     'status',
     'progress',
@@ -75,11 +92,40 @@ export class JobComponent implements OnInit, OnDestroy {
 
   selectedFile: File | null = null;
   selectedPresetId: string = '';
+  // 'single' = tek şablon, 'set' = paket (setteki her preset için ayrı iş)
+  jobMode: 'single' | 'set' = 'single';
+  selectedEncodeSetId: string = '';
+  encodeSets: EncodeSet[] = [];
   selectedSubtitle: File | null = null;
   selectedDubbing: File | null = null;
+  // 'SIDECAR' = ayrı .vtt dosyası (oynatıcıdan kapatılabilir), 'BURN' = görüntüye yak
+  subtitleMode: 'SIDECAR' | 'BURN' = 'SIDECAR';
+  subtitleLanguage = 'tr';
+
+  readonly subtitleLanguages = [
+    { code: 'tr', label: 'Türkçe' },
+    { code: 'en', label: 'İngilizce' },
+    { code: 'de', label: 'Almanca' },
+    { code: 'ar', label: 'Arapça' },
+  ];
+
+  // Oynatıcıya verilecek altyazı izi (SIDECAR modunda dolu olur)
+  currentSubtitleUrl = '';
+  currentSubtitleLabel = '';
+  currentSubtitleLang = '';
+
+  // --- SMIL oynatıcı durumu ---
+  smilBatchId = '';
+  smilBatchName = '';
+  smilError = '';
+  smilQualities: { src: string; label: string; width: number; height: number; bitrate: number }[] = [];
+  smilCurrentQuality = 0;
+  smilSubtitle: { src: string; lang: string; label: string } | null = null;
+  smilSubtitleOn = false;
+
   private pollingSubscription?: Subscription;
 
-  // YENİ: Yükleme artık arka planda; kullanıcı sitede gezmeye devam edebilir
+  // Yükleme arka planda; kullanıcı sitede gezmeye devam edebilir
   isBackgroundUploading = false;
   backgroundUploadName = '';
 
@@ -104,16 +150,19 @@ export class JobComponent implements OnInit, OnDestroy {
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild('uploadDialog') uploadDialog!: TemplateRef<any>;
   @ViewChild('videoDialog') videoDialog!: TemplateRef<any>;
+  @ViewChild('smilDialog') smilDialog!: TemplateRef<any>;
 
   constructor(
     private jobService: JobService,
     private presetService: PresetService,
+    private encodeSetService: EncodeSetService,
     public dialog: MatDialog,
     private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
     this.loadPresets();
+    this.loadEncodeSets();
     this.setupFilterPredicate();
 
     this.pollingSubscription = timer(0, 3000)
@@ -156,7 +205,19 @@ export class JobComponent implements OnInit, OnDestroy {
   }
 
   private updateTableData(data: Job[]) {
-    const stableData = [...data].sort((a, b) => a.id.localeCompare(b.id));
+    // Aynı batch'ten doğan işler tabloda alt alta dursun diye önce batch'e,
+    // sonra çözünürlüğe (büyükten küçüğe) göre sıralanıyor.
+    const stableData = [...data].sort((a, b) => {
+      const groupA = a.batchId || a.id;
+      const groupB = b.batchId || b.id;
+      if (groupA !== groupB) return groupA.localeCompare(groupB);
+
+      const areaA = (a.preset?.width ?? 0) * (a.preset?.height ?? 0);
+      const areaB = (b.preset?.width ?? 0) * (b.preset?.height ?? 0);
+      if (areaA !== areaB) return areaB - areaA;
+
+      return a.id.localeCompare(b.id);
+    });
     this.dataSource.data = stableData;
 
     if (!this.dataSource.sort && this.sort) this.dataSource.sort = this.sort;
@@ -182,12 +243,49 @@ export class JobComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadEncodeSets() {
+    this.encodeSetService.getAllSets().subscribe({
+      next: (data) => (this.encodeSets = data),
+      error: (err) => console.error('Paketler çekilirken hata oluştu', err),
+    });
+  }
+
+  // Tabloda paket adını göstermek için: job yalnızca encodeSetId taşır
+  encodeSetName(job: Job): string {
+    const set = this.encodeSets.find((s) => s.id === job.encodeSetId);
+    return set ? set.name : 'Paket';
+  }
+
+  // Aynı batch'teki iş sayısı - tabloda "3 çıktıdan biri" bilgisini vermek için
+  batchSize(job: Job): number {
+    if (!job.batchId) return 1;
+    return this.dataSource.data.filter((j) => j.batchId === job.batchId).length;
+  }
+
   openUploadDialog() {
     this.selectedFile = null;
     this.selectedPresetId = '';
+    this.selectedEncodeSetId = '';
+    this.jobMode = 'single';
     this.selectedSubtitle = null;
     this.selectedDubbing = null;
+    this.subtitleMode = 'SIDECAR';
+    this.subtitleLanguage = 'tr';
+    this.loadEncodeSets();
     this.dialog.open(this.uploadDialog, { width: '450px' });
+  }
+
+  // Mod değişince diğer modun seçimi temizlenir; backend ikisini birden kabul etmiyor
+  onJobModeChange() {
+    if (this.jobMode === 'single') {
+      this.selectedEncodeSetId = '';
+    } else {
+      this.selectedPresetId = '';
+    }
+  }
+
+  get isTargetSelected(): boolean {
+    return this.jobMode === 'single' ? !!this.selectedPresetId : !!this.selectedEncodeSetId;
   }
 
   onFileSelected(event: any) {
@@ -202,15 +300,24 @@ export class JobComponent implements OnInit, OnDestroy {
 
   // YENİ: Pencereyi hemen kapatır, yükleme arka planda devam eder
   startUploadAndJob() {
-    if (!this.selectedFile || !this.selectedPresetId) {
-      alert('Lütfen bir video ve uygulanacak şablonu seçin.');
+    if (!this.selectedFile || !this.isTargetSelected) {
+      alert(
+        this.jobMode === 'single'
+          ? 'Lütfen bir video ve uygulanacak şablonu seçin.'
+          : 'Lütfen bir video ve uygulanacak paketi seçin.',
+      );
       return;
     }
 
     const file = this.selectedFile;
+    const mode = this.jobMode;
     const presetId = this.selectedPresetId;
+    const encodeSetId = this.selectedEncodeSetId;
     const subtitle = this.selectedSubtitle;
     const dubbing = this.selectedDubbing;
+    const subMode = this.subtitleMode;
+    const subLang = this.subtitleLanguage;
+    const subLabel = this.subtitleLanguages.find((l) => l.code === subLang)?.label ?? 'Türkçe';
 
     // Pencereyi anında kapat, kullanıcı sitede gezmeye devam etsin
     this.dialog.closeAll();
@@ -221,8 +328,19 @@ export class JobComponent implements OnInit, OnDestroy {
       next: (videoResponse) => {
         const formData = new FormData();
         formData.append('videoId', videoResponse.id);
-        formData.append('presetId', presetId);
-        if (subtitle) formData.append('subtitleFile', subtitle);
+        // Backend ya presetId ya encodeSetId bekler, ikisi birden gönderilmez
+        if (mode === 'single') {
+          formData.append('presetId', presetId);
+        } else {
+          formData.append('encodeSetId', encodeSetId);
+        }
+        if (subtitle) {
+          formData.append('subtitleFile', subtitle);
+          // BURN: görüntüye yakılır, kapatılamaz. SIDECAR: ayrı .vtt, oynatıcıdan seçilebilir.
+          formData.append('subtitleMode', subMode);
+          formData.append('subtitleLanguage', subLang);
+          formData.append('subtitleLabel', subLabel);
+        }
         if (dubbing) formData.append('dubbingFile', dubbing);
 
         this.jobService.createJob(formData).subscribe({
@@ -251,10 +369,40 @@ export class JobComponent implements OnInit, OnDestroy {
     });
   }
 
-  playVideo(job: Job) {
+  /**
+   * Çıktı dosyasının servis URL'i.
+   * Paket işlerinde outputFileName "<batchId>/720p_....mp4" gibi alt klasör içerir;
+   * bu yüzden her segment ayrı ayrı encode ediliyor, "/" olduğu gibi kalıyor.
+   */
+  private outputUrl(job: Job): string {
     const targetFileName = job.outputFileName ? job.outputFileName : job.inputFileName;
-    this.currentVideoName = targetFileName;
-    this.currentVideoUrl = `http://localhost:8081/api/videos/play/${targetFileName}`;
+    const encoded = targetFileName.split('/').map(encodeURIComponent).join('/');
+    return `http://localhost:8081/api/videos/play/${encoded}`;
+  }
+
+  private outputBaseName(job: Job): string {
+    const targetFileName = job.outputFileName ? job.outputFileName : job.inputFileName;
+    const parts = targetFileName.split('/');
+    return parts[parts.length - 1];
+  }
+
+  // SIDECAR altyazının servis URL'i (yoksa boş string)
+  private subtitleUrl(job: Job): string {
+    if (!job.subtitleVttFileName) return '';
+    const encoded = job.subtitleVttFileName.split('/').map(encodeURIComponent).join('/');
+    return `http://localhost:8081/api/videos/play/${encoded}`;
+  }
+
+  hasSelectableSubtitle(job: Job): boolean {
+    return job.subtitleMode === 'SIDECAR' && !!job.subtitleVttFileName;
+  }
+
+  playVideo(job: Job) {
+    this.currentVideoName = this.outputBaseName(job);
+    this.currentVideoUrl = this.outputUrl(job);
+    this.currentSubtitleUrl = this.subtitleUrl(job);
+    this.currentSubtitleLabel = job.subtitleLabel || 'Altyazı';
+    this.currentSubtitleLang = job.subtitleLanguage || 'tr';
     this.dialog.open(this.videoDialog, {
       width: '800px',
       maxWidth: '90vw',
@@ -263,15 +411,150 @@ export class JobComponent implements OnInit, OnDestroy {
   }
 
   downloadVideo(job: Job) {
-    const targetFileName = job.outputFileName ? job.outputFileName : job.inputFileName;
-    const downloadUrl = `http://localhost:8081/api/videos/play/${targetFileName}`;
     const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = targetFileName;
+    link.href = this.outputUrl(job);
+    link.download = this.outputBaseName(job);
     link.target = '_blank';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  }
+
+  // ============ SMIL OYNATICI (paket çıktıları için) ============
+
+  /**
+   * Paketin playlist.smil dosyasını okuyup oynatıcıyı kurar.
+   *
+   * SMIL bir video değil, bir tarif dosyası: hangi mp4'ün hangi kalite olduğunu
+   * ve altyazının nerede olduğunu söyler. Tarayıcı bunu kendi başına oynatamadığı
+   * için XML'i burada ayrıştırıp <video> kaynağını biz yönetiyoruz.
+   * Aynı dosya, ileride Wowza kurulursa orada da doğrudan çalışır.
+   */
+  openSmilPlayer(job: Job) {
+    if (!job.batchId) return;
+
+    this.smilError = '';
+    this.smilQualities = [];
+    this.smilSubtitle = null;
+    this.smilCurrentQuality = 0;
+    this.smilSubtitleOn = false;
+    this.smilBatchId = job.batchId;
+    this.smilBatchName = job.inputFileName;
+
+    this.dialog.open(this.smilDialog, {
+      width: '900px',
+      maxWidth: '95vw',
+      panelClass: 'video-dialog-container',
+    });
+
+    this.jobService.getBatchSmil(job.batchId).subscribe({
+      next: (xml) => {
+        this.parseSmil(xml);
+        if (this.smilQualities.length === 0) {
+          this.smilError = 'SMIL dosyasında oynatılabilir kalite bulunamadı.';
+        }
+        this.cdr.detectChanges();
+        setTimeout(() => this.applySubtitleMode(), 300);
+      },
+      error: () => {
+        this.smilError = 'SMIL manifesti okunamadı. Paketin tüm işleri tamamlandı mı?';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  /** <video> ve <textstream> düğümlerini okur. Kaliteler büyükten küçüğe sıralanır. */
+  private parseSmil(xml: string) {
+    const doc = new DOMParser().parseFromString(xml, 'application/xml');
+    if (doc.querySelector('parsererror')) {
+      this.smilError = 'SMIL dosyası ayrıştırılamadı.';
+      return;
+    }
+
+    this.smilQualities = [...doc.querySelectorAll('video')]
+      .map((el) => {
+        const width = Number(el.getAttribute('width')) || 0;
+        const height = Number(el.getAttribute('height')) || 0;
+        return {
+          src: el.getAttribute('src') || '',
+          width,
+          height,
+          bitrate: Number(el.getAttribute('system-bitrate')) || 0,
+          label: height ? `${height}p` : el.getAttribute('src') || 'Bilinmeyen',
+        };
+      })
+      .filter((q) => q.src)
+      .sort((a, b) => b.width * b.height - a.width * a.height);
+
+    const text = doc.querySelector('textstream');
+    if (text && text.getAttribute('src')) {
+      this.smilSubtitle = {
+        src: text.getAttribute('src')!,
+        lang: text.getAttribute('system-language') || 'tr',
+        label: text.getAttribute('title') || 'Altyazı',
+      };
+    }
+  }
+
+  // SMIL'deki yollar dosyaya göre göreli; paket klasörüyle birleştiriyoruz
+  private smilFileUrl(relative: string): string {
+    const encoded = `${this.smilBatchId}/${relative}`.split('/').map(encodeURIComponent).join('/');
+    return `http://localhost:8081/api/videos/play/${encoded}`;
+  }
+
+  get smilVideoUrl(): string {
+    const q = this.smilQualities[this.smilCurrentQuality];
+    return q ? this.smilFileUrl(q.src) : '';
+  }
+
+  get smilSubtitleUrl(): string {
+    return this.smilSubtitle ? this.smilFileUrl(this.smilSubtitle.src) : '';
+  }
+
+  get smilQualityLabel(): string {
+    return this.smilQualities[this.smilCurrentQuality]?.label ?? 'Kalite';
+  }
+
+  /**
+   * Kalite değiştirme: mp4 kaynağı değişince tarayıcı videoyu baştan yükler,
+   * bu yüzden bulunduğumuz saniyeyi ve oynatma durumunu elle geri veriyoruz.
+   */
+  selectSmilQuality(index: number) {
+    const video = document.getElementById('smil-video') as HTMLVideoElement | null;
+    const position = video?.currentTime ?? 0;
+    const wasPlaying = video ? !video.paused : false;
+
+    this.smilCurrentQuality = index;
+    this.cdr.detectChanges();
+
+    if (!video) return;
+    video.addEventListener(
+      'loadedmetadata',
+      () => {
+        video.currentTime = position;
+        this.applySubtitleMode();
+        if (wasPlaying) video.play().catch(() => undefined);
+      },
+      { once: true },
+    );
+    video.load();
+  }
+
+  toggleSmilSubtitle(on: boolean) {
+    this.smilSubtitleOn = on;
+    this.applySubtitleMode();
+  }
+
+  // Kaynak her değiştiğinde altyazı izi sıfırlandığı için tekrar uygulanmalı
+  private applySubtitleMode() {
+    const video = document.getElementById('smil-video') as HTMLVideoElement | null;
+    if (!video || video.textTracks.length === 0) return;
+    video.textTracks[0].mode = this.smilSubtitleOn ? 'showing' : 'disabled';
+  }
+
+  openSmil(job: Job) {
+    if (!job.batchId) return;
+    window.open(this.jobService.getBatchSmilUrl(job.batchId), '_blank');
   }
 
   deleteJob(id: string) {
@@ -285,10 +568,9 @@ export class JobComponent implements OnInit, OnDestroy {
 
   openClipPanel(job: any) {
     const actualVideoId = job.video?.id || job.videoId || job.id;
-    const targetFileName = job.outputFileName ? job.outputFileName : job.inputFileName;
 
-    this.clipVideoName = targetFileName;
-    this.clipVideoUrl = `http://localhost:8081/api/videos/play/${targetFileName}`;
+    this.clipVideoName = this.outputBaseName(job);
+    this.clipVideoUrl = this.outputUrl(job);
     this.videoClipRequest = { videoId: actualVideoId, startSeconds: 0, endSeconds: 10 };
     this.clipStartStr = this.formatTime(0);
     this.clipEndStr = this.formatTime(10);

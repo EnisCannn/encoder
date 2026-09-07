@@ -2,6 +2,8 @@ package com.example.encoder.controller;
 
 import com.example.encoder.dto.request.CreateEncodingJobRequest;
 import com.example.encoder.entity.EncodingJob;
+import com.example.encoder.service.SmilGeneratorService;
+import com.example.encoder.service.impelemtation.HlsPackagerServiceImpl;
 import com.example.encoder.service.impelemtation.EncodingJobServiceImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @CrossOrigin(origins = "http://localhost:4200")
@@ -25,13 +28,17 @@ import java.util.UUID;
 public class EncodingJobController {
 
     private final EncodingJobServiceImpl service;
+    private final SmilGeneratorService smilGeneratorService;
 
     @Value("${encoder.folder.assets}")
     private String assetsFolder;
 
+    @Value("${encoder.folder.output}")
+    private String outputFolder;
+
     // Arayüzden (Angular) gelen Form verilerini ve dosyaları karşılar
     @PostMapping(consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
-    public EncodingJob createJob(
+    public List<EncodingJob> createJob(
             @Valid @ModelAttribute CreateEncodingJobRequest request,
             @RequestParam(value = "subtitleFile", required = false) MultipartFile subtitleFile,
             @RequestParam(value = "dubbingFile", required = false) MultipartFile dubbingFile) {
@@ -58,8 +65,8 @@ public class EncodingJobController {
             throw new RuntimeException("Dosya yükleme hatası: " + e.getMessage());
         }
 
-        // Değerler eklendikten sonra eski servisine dokunmadan gönderilir
-        return service.createJob(request);
+        // Tekli modda tek elemanlı, paket modunda setteki preset sayısı kadar iş döner
+        return service.createJobs(request);
     }
 
     @GetMapping("/{id}")
@@ -70,6 +77,33 @@ public class EncodingJobController {
     @GetMapping
     public List<EncodingJob> getAllJobs() {
         return service.getAllJobs();
+    }
+
+    // Aynı paketten doğan işler
+    @GetMapping("/batch/{batchId}")
+    public List<EncodingJob> getJobsByBatch(@PathVariable UUID batchId) {
+        return service.getJobsByBatch(batchId);
+    }
+
+    // Paketin Wowza uyumlu SMIL manifesti. Henüz üretilmediyse istek anında üretilir.
+    @GetMapping(value = "/batch/{batchId}/smil", produces = "application/smil+xml;charset=UTF-8")
+    public String getBatchSmil(@PathVariable UUID batchId) {
+        return smilGeneratorService.readOrGenerate(batchId);
+    }
+
+    /**
+     * Paketin HLS master playlist adresi. Oynatıcı bu URL'i hls.js'e verir.
+     * Segmentler ve varyantlar master'a göre göreli çözüldüğü için tek adres yeterli.
+     */
+    @GetMapping("/batch/{batchId}/hls")
+    public Map<String, String> getBatchHls(@PathVariable UUID batchId) {
+        String relative = batchId + "/" + HlsPackagerServiceImpl.HLS_DIR
+                + "/" + HlsPackagerServiceImpl.MASTER_FILE_NAME;
+        boolean ready = Files.exists(Paths.get(outputFolder).resolve(relative));
+        return Map.of(
+                "masterPath", relative,
+                "ready", String.valueOf(ready)
+        );
     }
 
     @DeleteMapping("/{id}")

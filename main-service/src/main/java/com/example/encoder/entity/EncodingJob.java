@@ -1,5 +1,6 @@
 package com.example.encoder.entity;
 
+import com.example.encoder.entity.enums.SubtitleMode;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,8 +25,18 @@ public class EncodingJob {
     private String outputFileName;
     private String outputPath;
     // EncodingJob.java içerisine eklenecek alanlar
-    private String subtitlePath; // Örn: "C:/video_test/altyazi.srt"
+    private String subtitlePath; // Yüklenen kaynak dosya. Örn: "C:/video_test/assets/sub_xxx.srt"
     private String dubbingPath;  // Örn: "C:/video_test/dublaj.mp3"
+
+    @Enumerated(EnumType.STRING)
+    private SubtitleMode subtitleMode = SubtitleMode.NONE;
+
+    // Çıktı klasörüne göre göreli .vtt yolu. Örn: "<batchId>/subtitles/tr.vtt"
+    // Yalnızca SIDECAR modunda dolar; outputFileName ile aynı mantıkta göreli tutulur.
+    private String subtitleVttFileName;
+
+    private String subtitleLanguage; // Örn: "tr"
+    private String subtitleLabel;    // Örn: "Türkçe"
 
 
     @Enumerated(EnumType.STRING)
@@ -39,6 +50,12 @@ public class EncodingJob {
     private Instant startedAt;
     private Instant completedAt;
     private Instant createdAt = Instant.now();
+
+    // Aynı EncodeSet'ten doğan işleri gruplayan kimlik (tekli işlerde null)
+    private UUID batchId;
+
+    // İşin hangi paketten doğduğu (tekli işlerde null)
+    private UUID encodeSetId;
 
     @ManyToOne
     @JoinColumn(name = "preset_id")

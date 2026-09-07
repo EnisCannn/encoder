@@ -3,6 +3,7 @@ package com.example.encoderservice.encoder;
 import com.example.encoderservice.entity.EncodingJob;
 import com.example.encoderservice.entity.EncodingPreset;
 import com.example.encoderservice.entity.Video;
+import com.example.encoderservice.entity.enums.SubtitleMode;
 import com.example.encoderservice.repository.EncodingJobRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -79,7 +80,14 @@ public class FFmpegEncoderService implements EncoderService {
             videoFilters.add("scale=" + preset.getWidth() + ":" + preset.getHeight());
         }
 
-        if (job.getSubtitlePath() != null && !job.getSubtitlePath().isEmpty()) {
+        // Altyazı yalnızca BURN modunda görüntüye yakılır.
+        // SIDECAR modunda main-service ayrı bir .vtt üretir, burada yakma yapılmaz;
+        // böylece altyazı oynatıcıdan kapatılabilir ve her kaliteye tekrar gömülmez.
+        boolean burnSubtitle = job.getSubtitleMode() == SubtitleMode.BURN
+                && job.getSubtitlePath() != null
+                && !job.getSubtitlePath().isEmpty();
+
+        if (burnSubtitle) {
             String escapedSubtitlePath = job.getSubtitlePath().replace("\\", "/").replace(":", "\\:");
             videoFilters.add("subtitles='" + escapedSubtitlePath + "'");
         }
@@ -110,6 +118,7 @@ public class FFmpegEncoderService implements EncoderService {
             builder.redirectErrorStream(true);
 
             System.out.println("--- FFMPEG MOTORU ÇALIŞMAYA BAŞLADI (Job ID: " + job.getId() + ") ---");
+            System.out.println("[FFMPEG CMD]: " + String.join(" ", command));
             Process process = builder.start();
 
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
