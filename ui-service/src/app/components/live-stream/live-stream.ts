@@ -559,7 +559,10 @@ export class LiveStreamComponent implements OnInit, OnDestroy {
       error: (err) => {
         console.error('Klip hatası', err);
         this.isClipping = false;
-        alert('Klip alınırken hata oluştu!');
+        // Backend hatanın sebebini metin olarak dönüyor; sabit mesajla değiştirmek
+        // yerine olduğu gibi gösteriyoruz, yoksa sorun logları açmadan görünmüyor.
+        const detail = typeof err?.error === 'string' ? err.error : (err?.message ?? '');
+        alert('Klip alınırken hata oluştu!' + (detail ? '\n\n' + detail : ''));
       },
     });
   }

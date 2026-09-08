@@ -98,7 +98,12 @@ public class EncodingPresetServiceImpl implements EncodingPresetService {
 
     @Override
     public List<PresetResponse> getAllPresets() {
-        return repository.findAll().stream().map(this::mapToResponse).collect(Collectors.toList());
+        // Kalibrasyon sablonlari listeyi kirletmesin; onlar bir taramaya ait
+        // gecici kayitlar, kullanicinin secebilecegi sablonlar degil.
+        return repository.findAll().stream()
+                .filter(p -> !Boolean.TRUE.equals(p.getCalibration()))
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
     @Override

@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -28,6 +29,14 @@ public class VideoServiceImpl implements VideoService {
 
     @Value("${encoder.ffmpeg.ffprobe-path:ffprobe}")
     private String ffprobePath;
+
+    /** Kalibrasyon tarama formundaki secici icin: en yeni videolar basta. */
+    @Override
+    public List<Video> getAllVideos() {
+        return repository.findAll().stream()
+                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+                .toList();
+    }
 
     @Override
     public Video uploadVideo(MultipartFile file) throws IOException {

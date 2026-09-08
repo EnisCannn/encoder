@@ -1,0 +1,8 @@
+/* Grafik metinleri secilemesin, tiklarken metin secimi rahatsiz ediyor */
+svg text {
+  user-select: none;
+}
+
+svg circle {
+  cursor: pointer;
+}

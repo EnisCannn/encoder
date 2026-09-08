@@ -61,90 +61,137 @@
 
     <!-- SOL TARAF: TABLO -->
     <div [style.width]="showClipPanel ? '30%' : '100%'" style="transition: width 0.3s ease; overflow-x: auto;">
-      <table mat-table [dataSource]="dataSource" matSort class="mat-elevation-z8" style="width: 100%; border-bottom-left-radius: 0; border-bottom-right-radius: 0;" [trackBy]="trackById">
+      <table mat-table [dataSource]="dataSource" matSort class="mat-elevation-z8" style="width: 100%; border-bottom-left-radius: 0; border-bottom-right-radius: 0;" [trackBy]="trackByRow">
 
         <ng-container matColumnDef="id">
           <th mat-header-cell *matHeaderCellDef mat-sort-header> ID </th>
-          <td mat-cell *matCellDef="let element" style="color: #7f8c8d; font-size: 13px;" [matTooltip]="element.id">
-            {{ element.id | slice:0:8 }}...
+          <td mat-cell *matCellDef="let row" style="color: #7f8c8d; font-size: 13px;"
+              [matTooltip]="row.isBatch ? 'Paket kimliği: ' + row.key : row.key">
+            {{ row.key | slice:0:8 }}...
           </td>
         </ng-container>
 
         <ng-container matColumnDef="inputFileName">
           <th mat-header-cell *matHeaderCellDef mat-sort-header> Video Adı </th>
-          <td mat-cell *matCellDef="let element"> <b>{{element.inputFileName}}</b> </td>
+          <td mat-cell *matCellDef="let row"> <b>{{ row.inputFileName }}</b> </td>
         </ng-container>
 
         <ng-container matColumnDef="batch">
           <th mat-header-cell *matHeaderCellDef> Paket </th>
-          <td mat-cell *matCellDef="let element">
-            <span *ngIf="element.batchId"
-                  [matTooltip]="'Paket kimliği: ' + element.batchId"
+          <td mat-cell *matCellDef="let row">
+            <span *ngIf="row.isBatch"
+                  [matTooltip]="'Paket kimliği: ' + row.key"
                   style="background: #ede7f6; color: #5e35b1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
               <mat-icon style="font-size: 14px; width: 14px; height: 14px;">layers</mat-icon>
-              {{ encodeSetName(element) }} ({{ batchSize(element) }})
+              {{ encodeSetName(row.primary) }} ({{ row.jobs.length }})
             </span>
-            <span *ngIf="!element.batchId" style="color: gray; font-style: italic; font-size: 12px;">Tekli</span>
+            <span *ngIf="!row.isBatch" style="color: gray; font-style: italic; font-size: 12px;">Tekli</span>
           </td>
         </ng-container>
 
         <ng-container matColumnDef="presetName">
           <th mat-header-cell *matHeaderCellDef mat-sort-header> Uygulanan Şablon </th>
-          <td mat-cell *matCellDef="let element">
-            <span *ngIf="element.preset" style="background: #e3f2fd; color: #1565c0; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">
-              {{element.preset.name}}
-            </span>
-            <span *ngIf="!element.preset" style="color: gray; font-style: italic;">Şablon Yok</span>
+          <td mat-cell *matCellDef="let row">
+            <!-- Pakette her kalite kendi durum rengiyle ayni satirda listelenir -->
+            <div *ngIf="row.presetLabel" style="display: flex; flex-wrap: wrap; gap: 4px;">
+              <span *ngFor="let j of row.jobs"
+                    [matTooltip]="presetChipTooltip(j)"
+                    [style.background]="presetChipBg(j)"
+                    [style.color]="presetChipFg(j)"
+                    style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 5px;">
+                {{ presetQuality(j) }}
+                <!-- VMAF skoru: olculmusse kalitenin yanina iliskiyor -->
+                <b *ngIf="j.vmafScore != null"
+                   [style.color]="vmafColor(j.vmafScore)"
+                   style="background: #fff; border-radius: 3px; padding: 0 4px; font-size: 11px;">
+                  {{ j.vmafScore | number:'1.0-0' }}
+                </b>
+              </span>
+            </div>
+            <span *ngIf="!row.presetLabel" style="color: gray; font-style: italic;">Şablon Yok</span>
           </td>
         </ng-container>
 
         <ng-container matColumnDef="status">
           <th mat-header-cell *matHeaderCellDef mat-sort-header> Durum </th>
-          <td mat-cell *matCellDef="let element">
-            <span *ngIf="element.status === 'COMPLETED'" style="color: green; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+          <td mat-cell *matCellDef="let row">
+            <span *ngIf="row.status === 'COMPLETED'" style="color: green; font-weight: bold; display: flex; align-items: center; gap: 5px;">
               <mat-icon style="font-size: 18px;">check_circle</mat-icon> Tamamlandı
             </span>
-            <span *ngIf="element.status === 'FAILED'" style="color: red; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+            <span *ngIf="row.status === 'FAILED'" style="color: red; font-weight: bold; display: flex; align-items: center; gap: 5px;">
               <mat-icon style="font-size: 18px;">error</mat-icon> Başarısız
             </span>
-            <span *ngIf="element.status === 'PROCESSING'" style="color: orange; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+            <span *ngIf="row.status === 'PROCESSING'" style="color: orange; font-weight: bold; display: flex; align-items: center; gap: 5px;">
               <mat-icon style="font-size: 18px;" class="spin">sync</mat-icon> İşleniyor
             </span>
-            <span *ngIf="element.status === 'PENDING'" style="color: gray; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+            <span *ngIf="row.status === 'PENDING'" style="color: gray; font-weight: bold; display: flex; align-items: center; gap: 5px;">
               <mat-icon style="font-size: 18px;">hourglass_empty</mat-icon> Bekliyor
             </span>
+            <div *ngIf="row.jobs.length > 1" style="font-size: 11px; color: gray; margin-top: 2px;">
+              {{ row.completedCount }}/{{ row.jobs.length }} kalite hazır
+            </div>
+            <div *ngIf="row.averageVmaf != null"
+                 [style.color]="vmafColor(row.averageVmaf)"
+                 [matTooltip]="vmafVerdict(row.averageVmaf)"
+                 style="font-size: 11px; margin-top: 2px; font-weight: 600;">
+              VMAF {{ row.averageVmaf | number:'1.0-1' }}
+            </div>
           </td>
         </ng-container>
 
         <ng-container matColumnDef="progress">
           <th mat-header-cell *matHeaderCellDef mat-sort-header> İlerleme </th>
-          <td mat-cell *matCellDef="let element" style="width: 250px;">
+          <td mat-cell *matCellDef="let row" style="width: 250px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <mat-progress-bar mode="determinate" [value]="element.progress" [color]="element.status === 'COMPLETED' ? 'primary' : (element.status === 'FAILED' ? 'warn' : 'accent')" style="flex: 1; height: 8px; border-radius: 4px;"></mat-progress-bar>
-              <span style="font-weight: bold; font-size: 12px; width: 40px; text-align: right;">%{{element.progress}}</span>
+              <mat-progress-bar mode="determinate" [value]="row.progress" [color]="row.status === 'COMPLETED' ? 'primary' : (row.status === 'FAILED' ? 'warn' : 'accent')" style="flex: 1; height: 8px; border-radius: 4px;"></mat-progress-bar>
+              <span style="font-weight: bold; font-size: 12px; width: 40px; text-align: right;">%{{ row.progress }}</span>
             </div>
           </td>
         </ng-container>
 
         <ng-container matColumnDef="actions">
           <th mat-header-cell *matHeaderCellDef style="text-align: right;"> İşlemler </th>
-          <td mat-cell *matCellDef="let element" style="text-align: right;">
-            <button *ngIf="element.status === 'COMPLETED'" mat-icon-button style="color: #ff9800;" (click)="openClipPanel(element)" matTooltip="Videodan Klip Kes">
+          <td mat-cell *matCellDef="let row" style="text-align: right;">
+            <button *ngIf="row.status === 'COMPLETED'" mat-icon-button style="color: #ff9800;" (click)="openClipPanel(row.primary)" matTooltip="Videodan Klip Kes">
               <mat-icon>content_cut</mat-icon>
             </button>
-            <button *ngIf="element.status === 'COMPLETED'" mat-icon-button color="primary" (click)="playVideo(element)" matTooltip="Bu Kaliteyi İzle">
+
+            <!-- Tekli iste dogrudan oynatici, pakette kalite secimli tek oynatici -->
+            <button *ngIf="row.status === 'COMPLETED' && !row.isBatch" mat-icon-button color="primary" (click)="playVideo(row.primary)" matTooltip="İzle">
               <mat-icon>play_circle</mat-icon>
             </button>
-            <button *ngIf="element.status === 'COMPLETED' && element.batchId" mat-icon-button style="color: #5e35b1;" (click)="openSmilPlayer(element)" matTooltip="Paketi Tek Oynatıcıda İzle (kalite + altyazı seçimli)">
-              <mat-icon>hd</mat-icon>
+            <button *ngIf="row.status === 'COMPLETED' && row.isBatch" mat-icon-button color="primary" (click)="openSmilPlayer(row.primary)" matTooltip="İzle (kalite + altyazı seçimli)">
+              <mat-icon>play_circle</mat-icon>
             </button>
-            <button *ngIf="element.status === 'COMPLETED' && element.batchId" mat-icon-button style="color: #607d8b;" (click)="openSmil(element)" matTooltip="SMIL Manifestinin Kendisini Aç (XML)">
+            <button *ngIf="row.status === 'COMPLETED' && row.isBatch" mat-icon-button style="color: #607d8b;" (click)="openSmil(row.primary)" matTooltip="SMIL Manifestinin Kendisini Aç (XML)">
               <mat-icon>description</mat-icon>
             </button>
-            <button *ngIf="element.status === 'COMPLETED'" mat-icon-button style="color: #4caf50;" (click)="downloadVideo(element)" matTooltip="Bilgisayara İndir">
+
+            <!-- Pakette hangi kalitenin inecegi menuden secilir -->
+            <button *ngIf="row.status === 'COMPLETED' && !row.isBatch" mat-icon-button style="color: #4caf50;" (click)="downloadVideo(row.primary)" matTooltip="Bilgisayara İndir">
               <mat-icon>download</mat-icon>
             </button>
-            <button mat-icon-button color="warn" (click)="deleteJob(element.id)" matTooltip="Görevi İptal Et / Sil">
+            <button *ngIf="row.status === 'COMPLETED' && row.isBatch" mat-icon-button style="color: #4caf50;" [matMenuTriggerFor]="downloadMenu" matTooltip="Bilgisayara İndir (kalite seç)">
+              <mat-icon>download</mat-icon>
+            </button>
+            <mat-menu #downloadMenu="matMenu">
+              <button mat-menu-item *ngFor="let j of row.jobs" [disabled]="j.status !== 'COMPLETED'" (click)="downloadVideo(j)">
+                {{ j.preset?.name }}
+              </button>
+            </mat-menu>
+
+            <button *ngIf="row.status === 'COMPLETED'"
+                    mat-icon-button
+                    style="color: #00838f;"
+                    (click)="measureQuality(row)"
+                    [disabled]="isMeasuring(row)"
+                    [matTooltip]="row.measuredCount > 0
+                      ? 'Kaliteyi Yeniden Ölç (VMAF)'
+                      : 'Kaliteyi Ölç (VMAF) — kaynakla karşılaştırır'">
+              <mat-icon>insights</mat-icon>
+            </button>
+
+            <button mat-icon-button color="warn" (click)="deleteRow(row)" [matTooltip]="row.jobs.length > 1 ? 'Paketin Tüm İşlerini Sil' : 'Görevi İptal Et / Sil'">
               <mat-icon>delete</mat-icon>
             </button>
           </td>
@@ -224,7 +271,13 @@
 
       <div style="text-align: right; margin-top: 10px;">
         <button mat-button (click)="closeClipPanel()" [disabled]="isVideoClipping" style="margin-right: 10px;">İptal</button>
-        <button mat-raised-button style="background-color: #ff9800; color: white;" (click)="takeVideoClip()" [disabled]="isVideoClipping">Klibi Oluştur</button>
+        <button mat-raised-button
+                (click)="takeVideoClip()"
+                [disabled]="isVideoClipping"
+                [style.background-color]="isVideoClipping ? '#e0e0e0' : '#ff9800'"
+                [style.color]="isVideoClipping ? 'rgba(0, 0, 0, 0.38)' : 'white'">
+          Klibi Oluştur
+        </button>
       </div>
     </mat-card>
   </div>

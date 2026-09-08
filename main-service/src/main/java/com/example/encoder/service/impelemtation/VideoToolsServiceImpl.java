@@ -27,6 +27,10 @@ public class VideoToolsServiceImpl implements VideoToolsService {
     @Value("${encoder.ffmpeg.ffmpeg-path:ffmpeg}")
     private String ffmpegPath;
 
+    // ffmpeg takilirsa istegi sonsuza kadar bloklamasin
+    @Value("${encoder.ffmpeg.clip-timeout-seconds:600}")
+    private long clipTimeoutSeconds;
+
     @Override
     public String cutVideo(CutRequest request) {
         Video video = videoRepository.findById(UUID.fromString(request.getVideoId()))
@@ -59,12 +63,13 @@ public class VideoToolsServiceImpl implements VideoToolsService {
         command.add(outputPath.toString());
 
         try {
-            ProcessBuilder builder = new ProcessBuilder(command);
-            builder.redirectErrorStream(true);
             System.out.println("--- KLİP KESME İŞLEMİ BAŞLADI ---");
-            Process process = builder.start();
 
-            int exitCode = process.waitFor();
+            // Cikti burada hic okunmuyordu: pipe tamponu dolarsa ffmpeg kilitlenirdi.
+            com.example.encoder.util.FFmpegProcessRunner.Result result =
+                    com.example.encoder.util.FFmpegProcessRunner.run(command, clipTimeoutSeconds);
+
+            int exitCode = result.exitCode();
             System.out.println("--- KLİP KESME BİTTİ. Çıkış Kodu: " + exitCode + " ---");
 
             if (exitCode == 0) {

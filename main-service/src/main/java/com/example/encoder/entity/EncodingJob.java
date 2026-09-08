@@ -57,6 +57,12 @@ public class EncodingJob {
     // İşin hangi paketten doğduğu (tekli işlerde null)
     private UUID encodeSetId;
 
+    /**
+     * Son VMAF olcumunun ortalamasi. Asil kayit quality_measurements tablosunda;
+     * bu alan arayuz listeyi cekerken join yapmasin diye kopyalaniyor.
+     */
+    private Double vmafScore;
+
     @ManyToOne
     @JoinColumn(name = "preset_id")
     private EncodingPreset preset;

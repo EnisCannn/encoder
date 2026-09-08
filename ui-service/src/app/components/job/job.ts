@@ -30,7 +30,7 @@ import { JobService } from '../../services/job.service';
 import { PresetService } from '../../services/preset.service';
 import { EncodeSet, EncodeSetService } from '../../services/encode-set.service';
 import { Preset } from '../preset/preset';
-import { Subscription, timer } from 'rxjs';
+import { Subscription, forkJoin, timer } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 
 export interface Job {
@@ -48,6 +48,27 @@ export interface Job {
   subtitleVttFileName?: string | null;
   subtitleLanguage?: string | null;
   subtitleLabel?: string | null;
+  // Son VMAF olcumunun ortalamasi (0-100); henuz olculmediyse null
+  vmafScore?: number | null;
+}
+
+/**
+ * Tabloda gosterilen satir. Bir paket (batch) icin acilan tum isler tek satirda
+ * toplanir; tekli islerde grup yalnizca o isten olusur.
+ */
+export interface JobRow {
+  key: string;            // batchId (paket) veya job id (tekli)
+  isBatch: boolean;
+  jobs: Job[];            // kaliteye gore buyukten kucuge
+  primary: Job;           // temsili is: en yuksek kalite
+  inputFileName: string;
+  status: string;         // gruptan turetilen ortak durum
+  progress: number;       // gruptaki islerin ortalamasi
+  completedCount: number;
+  presetLabel: string;    // sablon adlari - arama/siralama icin
+  qualityLabel: string;   // "1080p, 720p, 480p"
+  measuredCount: number;  // VMAF skoru gelmis is sayisi
+  averageVmaf: number | null;  // olculenlerin ortalamasi
 }
 
 @Component({
@@ -87,7 +108,7 @@ export class JobComponent implements OnInit, OnDestroy {
     'progress',
     'actions',
   ];
-  dataSource = new MatTableDataSource<Job>([]);
+  dataSource = new MatTableDataSource<JobRow>([]);
   presets: Preset[] = [];
 
   selectedFile: File | null = null;
@@ -134,6 +155,9 @@ export class JobComponent implements OnInit, OnDestroy {
 
   topSearch = { id: '', inputFileName: '', presetName: '', status: '' };
 
+  // Olcum istegi gonderilmis satirlar - butona iki kez basilmasin
+  private measuringRows = new Set<string>();
+
   // Klip paneli
   showClipPanel = false;
   clipVideoUrl = '';
@@ -178,20 +202,42 @@ export class JobComponent implements OnInit, OnDestroy {
   }
 
   setupFilterPredicate() {
-    this.dataSource.filterPredicate = (data: Job, filter: string) => {
+    this.dataSource.filterPredicate = (row: JobRow, filter: string) => {
       const search = JSON.parse(filter);
-      const presetName = data.preset?.name || '';
+      const idTerm = (search.id || '').toLowerCase();
 
-      const matchId = data.id.toLowerCase().includes((search.id || '').toLowerCase());
-      const matchName = data.inputFileName
+      // Paket satirinda alt islerin id'siyle de arama yapilabilsin
+      const matchId =
+        row.key.toLowerCase().includes(idTerm) ||
+        row.jobs.some((j) => j.id.toLowerCase().includes(idTerm));
+      const matchName = row.inputFileName
         .toLowerCase()
         .includes((search.inputFileName || '').toLowerCase());
-      const matchPreset = presetName
-        .toLowerCase()
-        .includes((search.presetName || '').toLowerCase());
-      const matchStatus = search.status === '' || data.status === search.status;
+      const presetTerm = (search.presetName || '').toLowerCase();
+      const matchPreset =
+        row.presetLabel.toLowerCase().includes(presetTerm) ||
+        row.qualityLabel.toLowerCase().includes(presetTerm);
+      const matchStatus = search.status === '' || row.status === search.status;
 
       return matchId && matchName && matchPreset && matchStatus;
+    };
+
+    // Satirlarin alanlari kolon adlariyla birebir ayni olmadigi icin elle esleniyor
+    this.dataSource.sortingDataAccessor = (row: JobRow, column: string) => {
+      switch (column) {
+        case 'id':
+          return row.key;
+        case 'inputFileName':
+          return row.inputFileName;
+        case 'presetName':
+          return row.presetLabel;
+        case 'status':
+          return row.status;
+        case 'progress':
+          return row.progress;
+        default:
+          return '';
+      }
     };
   }
 
@@ -205,20 +251,7 @@ export class JobComponent implements OnInit, OnDestroy {
   }
 
   private updateTableData(data: Job[]) {
-    // Aynı batch'ten doğan işler tabloda alt alta dursun diye önce batch'e,
-    // sonra çözünürlüğe (büyükten küçüğe) göre sıralanıyor.
-    const stableData = [...data].sort((a, b) => {
-      const groupA = a.batchId || a.id;
-      const groupB = b.batchId || b.id;
-      if (groupA !== groupB) return groupA.localeCompare(groupB);
-
-      const areaA = (a.preset?.width ?? 0) * (a.preset?.height ?? 0);
-      const areaB = (b.preset?.width ?? 0) * (b.preset?.height ?? 0);
-      if (areaA !== areaB) return areaB - areaA;
-
-      return a.id.localeCompare(b.id);
-    });
-    this.dataSource.data = stableData;
+    this.dataSource.data = this.buildRows(data);
 
     if (!this.dataSource.sort && this.sort) this.dataSource.sort = this.sort;
     if (!this.dataSource.paginator && this.paginator) {
@@ -256,10 +289,143 @@ export class JobComponent implements OnInit, OnDestroy {
     return set ? set.name : 'Paket';
   }
 
-  // Aynı batch'teki iş sayısı - tabloda "3 çıktıdan biri" bilgisini vermek için
-  batchSize(job: Job): number {
-    if (!job.batchId) return 1;
-    return this.dataSource.data.filter((j) => j.batchId === job.batchId).length;
+  /**
+   * Ayni batchId'ye sahip isleri tek satirda toplar. Bir video pakete gore
+   * encode edilince paketteki her sablon icin ayri bir is aciliyor; tabloda
+   * bunlarin hepsi tek satir olarak gorunur, kaliteler satir icinde listelenir.
+   */
+  private buildRows(data: Job[]): JobRow[] {
+    const groups = new Map<string, Job[]>();
+    for (const job of data) {
+      const key = job.batchId || job.id;
+      const existing = groups.get(key);
+      if (existing) existing.push(job);
+      else groups.set(key, [job]);
+    }
+
+    const rows: JobRow[] = [];
+    groups.forEach((jobs, key) => {
+      // Kaliteler buyukten kucuge; temsili is en yuksek kalite oluyor
+      jobs.sort((a, b) => {
+        const areaA = (a.preset?.width ?? 0) * (a.preset?.height ?? 0);
+        const areaB = (b.preset?.width ?? 0) * (b.preset?.height ?? 0);
+        if (areaA !== areaB) return areaB - areaA;
+        return a.id.localeCompare(b.id);
+      });
+
+      const progressSum = jobs.reduce((sum, j) => sum + (j.progress ?? 0), 0);
+      const measured = jobs.filter((j) => j.vmafScore != null);
+
+      rows.push({
+        key,
+        isBatch: !!jobs[0].batchId,
+        jobs,
+        primary: jobs[0],
+        inputFileName: jobs[0].inputFileName,
+        status: this.aggregateStatus(jobs),
+        progress: Math.round(progressSum / jobs.length),
+        completedCount: jobs.filter((j) => j.status === 'COMPLETED').length,
+        presetLabel: jobs.map((j) => j.preset?.name ?? '').filter(Boolean).join(', '),
+        qualityLabel: jobs.map((j) => this.presetQuality(j)).filter(Boolean).join(', '),
+        measuredCount: measured.length,
+        averageVmaf: measured.length
+          ? measured.reduce((sum, j) => sum + (j.vmafScore ?? 0), 0) / measured.length
+          : null,
+      });
+    });
+
+    // Poll her 3 saniyede geldigi icin satir sirasi sabit kalmali
+    rows.sort((a, b) => a.key.localeCompare(b.key));
+    return rows;
+  }
+
+  /** Paketin ortak durumu: biri patladiysa basarisiz, hepsi bittiyse tamamlandi. */
+  private aggregateStatus(jobs: Job[]): string {
+    if (jobs.some((j) => j.status === 'FAILED')) return 'FAILED';
+    if (jobs.every((j) => j.status === 'COMPLETED')) return 'COMPLETED';
+    if (jobs.some((j) => j.status === 'PROCESSING' || j.status === 'COMPLETED')) return 'PROCESSING';
+    return 'PENDING';
+  }
+
+  // Satir icindeki kalite rozetinin rengi, o isin kendi durumundan gelir
+  private readonly statusColors: Record<string, { bg: string; fg: string }> = {
+    COMPLETED: { bg: '#e8f5e9', fg: '#2e7d32' },
+    FAILED: { bg: '#ffebee', fg: '#c62828' },
+    PROCESSING: { bg: '#fff3e0', fg: '#ef6c00' },
+    PENDING: { bg: '#eceff1', fg: '#546e7a' },
+  };
+
+  // Tabloda yer kaplamasin diye sablon adi yerine cozunurluk yazilir: 1080p
+  presetQuality(job: Job): string {
+    const height = job.preset?.height;
+    return height ? `${height}p` : (job.preset?.name ?? '');
+  }
+
+  presetChipBg(job: Job): string {
+    return this.statusColors[job.status]?.bg ?? '#eceff1';
+  }
+
+  presetChipFg(job: Job): string {
+    return this.statusColors[job.status]?.fg ?? '#546e7a';
+  }
+
+  presetChipTooltip(job: Job): string {
+    const labels: Record<string, string> = {
+      COMPLETED: 'Tamamlandı',
+      FAILED: 'Başarısız',
+      PROCESSING: 'İşleniyor',
+      PENDING: 'Bekliyor',
+    };
+    const name = job.preset?.name ?? 'Şablon';
+    const base = `${name} — ${labels[job.status] ?? job.status} (%${job.progress ?? 0})`;
+    return job.vmafScore != null
+      ? `${base}\nVMAF: ${job.vmafScore.toFixed(1)} — ${this.vmafVerdict(job.vmafScore)}`
+      : base;
+  }
+
+  /**
+   * VMAF skorunun sozel karsiligi. Esikler Netflix'in yayimladigi araliklara
+   * dayaniyor: 90 uzeri kaynaktan ayirt edilemez kabul ediliyor.
+   */
+  vmafVerdict(score: number): string {
+    if (score >= 90) return 'Mükemmel, kaynaktan ayırt edilemez';
+    if (score >= 80) return 'Çok iyi, çoğu izleyici fark etmez';
+    if (score >= 70) return 'Kabul edilebilir';
+    if (score >= 60) return 'Zayıf, bozulma görünür';
+    return 'Yetersiz, belirgin bozulma';
+  }
+
+  vmafColor(score: number): string {
+    if (score >= 90) return '#2e7d32';
+    if (score >= 80) return '#558b2f';
+    if (score >= 70) return '#ef6c00';
+    return '#c62828';
+  }
+
+  /** Satirdaki tum isler icin olcumu kuyruga alir. */
+  measureQuality(row: JobRow) {
+    const ids = row.jobs.filter((j) => j.status === 'COMPLETED').map((j) => j.id);
+    if (ids.length === 0) {
+      alert('Ölçüm için tamamlanmış çıktı yok.');
+      return;
+    }
+
+    this.measuringRows.add(row.key);
+    this.jobService.measureQuality(ids).subscribe({
+      next: () => {
+        this.measuringRows.delete(row.key);
+        this.loadJobs();
+      },
+      error: (err) => {
+        this.measuringRows.delete(row.key);
+        console.error('Kalite ölçümü kuyruğa alınamadı', err);
+        alert('Kalite ölçümü başlatılamadı: ' + (err?.error?.hata ?? 'Bilinmeyen hata'));
+      },
+    });
+  }
+
+  isMeasuring(row: JobRow): boolean {
+    return this.measuringRows.has(row.key);
   }
 
   openUploadDialog() {
@@ -557,13 +723,21 @@ export class JobComponent implements OnInit, OnDestroy {
     window.open(this.jobService.getBatchSmilUrl(job.batchId), '_blank');
   }
 
-  deleteJob(id: string) {
-    if (confirm('Bu işlemi iptal etmek/silmek istediğinize emin misiniz?')) {
-      this.jobService.deleteJob(id).subscribe({
-        next: () => this.loadJobs(),
-        error: (err) => console.error('Silme hatası', err),
-      });
-    }
+  /** Paket satirinda gruptaki tum isler birlikte silinir. */
+  deleteRow(row: JobRow) {
+    const message =
+      row.jobs.length > 1
+        ? `Bu pakete ait ${row.jobs.length} iş silinecek. Emin misiniz?`
+        : 'Bu işlemi iptal etmek/silmek istediğinize emin misiniz?';
+    if (!confirm(message)) return;
+
+    forkJoin(row.jobs.map((j) => this.jobService.deleteJob(j.id))).subscribe({
+      next: () => this.loadJobs(),
+      error: (err) => {
+        console.error('Silme hatası', err);
+        this.loadJobs();
+      },
+    });
   }
 
   openClipPanel(job: any) {
@@ -707,7 +881,7 @@ export class JobComponent implements OnInit, OnDestroy {
     });
   }
 
-  trackById(index: number, item: Job): string {
-    return item.id;
+  trackByRow(index: number, row: JobRow): string {
+    return row.key;
   }
 }

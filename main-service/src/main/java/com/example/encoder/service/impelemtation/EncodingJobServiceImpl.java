@@ -55,9 +55,14 @@ public class EncodingJobServiceImpl implements EncodingJobService {
             EncodingPreset preset = presetRepository.findById(request.getPresetId())
                     .orElseThrow(() -> new RuntimeException("Preset bulunamadı!"));
 
+            // Cikti adi yalnizca kaynak dosya adindan turetiliyordu: ayni videoyu iki
+            // farkli sablonla donusturunce ikisi de "encoded_<video>.mp4" dosyasina
+            // yaziyor ve ikincisi birincinin uzerine biniyordu. Artik sablon adi ve
+            // kisa bir benzersiz on ek ile her isin kendi dosyasi var.
             String outName = request.getOutputFileName() != null
                     ? request.getOutputFileName()
-                    : "encoded_" + video.getOriginalFileName();
+                    : "encoded_" + UUID.randomUUID().toString().substring(0, 8)
+                      + "_" + buildRenditionFileName(preset);
 
             // Tekli işte altyazı klasörü çakışmasın diye rastgele bir alt klasör kullanılıyor
             String vttFileName = prepareSidecarSubtitle(request, "subtitles/" + UUID.randomUUID());

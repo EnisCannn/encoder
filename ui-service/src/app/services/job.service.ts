@@ -20,6 +20,8 @@ export interface Job {
   subtitleVttFileName?: string | null;
   subtitleLanguage?: string | null;
   subtitleLabel?: string | null;
+  // Son VMAF olcumunun ortalamasi (0-100); henuz olculmediyse null
+  vmafScore?: number | null;
 }
 
 @Injectable({
@@ -30,8 +32,14 @@ export class JobService {
   private videoApiUrl = 'http://localhost:8081/api/videos/upload';
   private liveStreamApiUrl = 'http://localhost:8081/api/live';
   private videoToolsApiUrl = 'http://localhost:8081/api/video-tools';
+  private qualityApiUrl = 'http://localhost:8081/api/quality';
 
   constructor(private http: HttpClient) {}
+
+  /** Secilen isler icin VMAF olcumunu kuyruga alir; paket satirinda hepsi birden gonderilir. */
+  measureQuality(jobIds: string[]): Observable<any> {
+    return this.http.post(`${this.qualityApiUrl}/measure`, { jobIds });
+  }
 
   getAllJobs(): Observable<Job[]> {
     const timestamp = new Date().getTime();

@@ -42,6 +42,10 @@ public class LiveStreamServiceImpl implements LiveStreamService {
     @Value("${encoder.folder.live-clips}")
     private String clipsBaseFolder;
 
+    // Takilan bir ffmpeg surecinin istegi sonsuza kadar bloklamasini engeller
+    @Value("${encoder.ffmpeg.clip-timeout-seconds:600}")
+    private long clipTimeoutSeconds;
+
     @Value("${encoder.ffmpeg.ffmpeg-path:ffmpeg}")
     private String ffmpegPath;
 
@@ -323,20 +327,13 @@ public class LiveStreamServiceImpl implements LiveStreamService {
         command.add(outputPath.toString());
 
         try {
-            ProcessBuilder builder = new ProcessBuilder(command);
-            builder.redirectErrorStream(true);
             System.out.println("--- YAYINDAN KLİP ALMA İŞLEMİ BAŞLADI ---");
-            Process process = builder.start();
 
-            try (java.io.BufferedReader reader = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    System.out.println(line);
-                }
-            }
+            com.example.encoder.util.FFmpegProcessRunner.Result result =
+                    com.example.encoder.util.FFmpegProcessRunner.run(
+                            command, clipTimeoutSeconds, System.out::println);
 
-            int exitCode = process.waitFor();
+            int exitCode = result.exitCode();
             System.out.println("--- YAYINDAN KLİP ALMA BİTTİ. Çıkış Kodu: " + exitCode + " ---");
 
             if (exitCode != 0) {
@@ -368,12 +365,14 @@ public class LiveStreamServiceImpl implements LiveStreamService {
         double cumulative = 0;          // Playlist başından itibaren geçen süre
         long segmentWallStart = -1;     // İçinde bulunduğumuz segmentin gerçek başlangıcı
         double pendingDuration = -1;    // Okunan ama henüz işlenmemiş EXTINF süresi
+        boolean anyWallClockParsed = false;   // Tek bir PROGRAM-DATE-TIME bile cozulebildi mi
 
         for (String raw : lines) {
             String line = raw.trim();
 
             if (line.startsWith("#EXT-X-PROGRAM-DATE-TIME:")) {
                 segmentWallStart = parseEpochMillis(line.substring("#EXT-X-PROGRAM-DATE-TIME:".length()).trim());
+                if (segmentWallStart > 0) anyWallClockParsed = true;
                 continue;
             }
 
@@ -405,8 +404,11 @@ public class LiveStreamServiceImpl implements LiveStreamService {
             }
         }
 
-        // PROGRAM-DATE-TIME hiç bulunamadıysa eski yönteme düşeriz
-        if (cumulative == 0 && fallbackStartMs > 0) {
+        // PROGRAM-DATE-TIME hiç okunamadıysa eski yönteme düşeriz.
+        // Sadece cumulative == 0 kontrolü yetmiyordu: satırlar okunup tarihler
+        // çözülemediğinde cumulative doluyor ve her iki uç da kaydın sonunu
+        // döndürüyordu, bu da "bitiş başlangıçtan büyük olmalı" hatasına yol açıyordu.
+        if (!anyWallClockParsed && fallbackStartMs > 0) {
             return Math.max(0, (targetEpochMs - fallbackStartMs) / 1000.0);
         }
 
@@ -414,14 +416,32 @@ public class LiveStreamServiceImpl implements LiveStreamService {
         return cumulative;
     }
 
+    /**
+     * ffmpeg, PROGRAM-DATE-TIME'i "2026-09-08T06:56:16.362+0000" bicimiyle yaziyor:
+     * saat farki iki nokta olmadan yaziliyor. ISO_OFFSET_DATE_TIME bu bicimi kabul
+     * etmedigi icin once bu kaliba, sonra standart kaliplara bakiyoruz. Onceden
+     * hepsi -1 dondugu icin klip zamanlari hesaplanamiyordu.
+     */
+    private static final java.time.format.DateTimeFormatter PROGRAM_DATE_TIME_FORMAT =
+            new java.time.format.DateTimeFormatterBuilder()
+                    .append(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                    .optionalStart().appendOffset("+HHMMss", "Z").optionalEnd()
+                    .optionalStart().appendOffset("+HH:MM:ss", "Z").optionalEnd()
+                    .toFormatter(java.util.Locale.US);
+
     private long parseEpochMillis(String value) {
         try {
-            return java.time.OffsetDateTime.parse(value).toInstant().toEpochMilli();
+            return java.time.OffsetDateTime.parse(value, PROGRAM_DATE_TIME_FORMAT)
+                    .toInstant().toEpochMilli();
         } catch (Exception e) {
             try {
-                return java.time.Instant.parse(value).toEpochMilli();
-            } catch (Exception ignored) {
-                return -1;
+                return java.time.OffsetDateTime.parse(value).toInstant().toEpochMilli();
+            } catch (Exception e2) {
+                try {
+                    return java.time.Instant.parse(value).toEpochMilli();
+                } catch (Exception ignored) {
+                    return -1;
+                }
             }
         }
     }

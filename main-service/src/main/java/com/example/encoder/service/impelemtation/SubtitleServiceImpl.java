@@ -21,6 +21,10 @@ public class SubtitleServiceImpl implements SubtitleService {
     @Value("${encoder.ffmpeg.ffmpeg-path:ffmpeg}")
     private String ffmpegPath;
 
+    // ffmpeg takilirsa istegi sonsuza kadar bloklamasin
+    @Value("${encoder.ffmpeg.tool-timeout-seconds:1800}")
+    private long toolTimeoutSeconds;
+
     @Override
     public Path convertToVtt(String sourcePath, Path targetDir, String baseName) {
         Path source = Paths.get(sourcePath);
@@ -43,20 +47,12 @@ public class SubtitleServiceImpl implements SubtitleService {
                     ffmpegPath, "-y", "-nostdin", "-i", source.toString(), target.toString());
             builder.redirectErrorStream(true);
 
-            Process process = builder.start();
-            StringBuilder output = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append('\n');
-                }
-            }
+            com.example.encoder.util.FFmpegProcessRunner.Result result =
+                    com.example.encoder.util.FFmpegProcessRunner.run(builder.command(), toolTimeoutSeconds);
 
-            int exitCode = process.waitFor();
-            if (exitCode != 0 || !Files.exists(target)) {
+            if (!result.isSuccess() || !Files.exists(target)) {
                 throw new RuntimeException("Altyazı .vtt'ye çevrilemedi (ffmpeg çıkış kodu "
-                        + exitCode + "): " + output);
+                        + result.exitCode() + "): " + result.output());
             }
 
             return target;

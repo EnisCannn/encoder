@@ -15,6 +15,8 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UrlPathHelper;
 
 import java.io.IOException;
+import java.util.Map;
+import java.util.List;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -32,6 +34,22 @@ public class VideoController {
 
     @Value("${encoder.folder.output}")
     private String outputFolder;
+
+    /** Tarama formundaki video seçici için: yüklenmiş kaynak videolar. */
+    @GetMapping
+    public List<Map<String, Object>> listVideos() {
+        return service.getAllVideos().stream()
+                .map(v -> {
+                    Map<String, Object> row = new java.util.LinkedHashMap<>();
+                    row.put("id", v.getId());
+                    row.put("originalFileName", v.getOriginalFileName());
+                    row.put("width", v.getWidth());
+                    row.put("height", v.getHeight());
+                    row.put("duration", v.getDuration());
+                    return row;
+                })
+                .toList();
+    }
 
     // POST /api/videos/upload endpoint'i
     @PostMapping("/upload")

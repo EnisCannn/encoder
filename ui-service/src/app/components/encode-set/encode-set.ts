@@ -115,6 +115,18 @@ export class EncodeSetComponent implements OnInit {
     return preset.height ? `${preset.height}p` : `${preset.width}x${preset.height}`;
   }
 
+  // Chip'te sablon adi yazar; kalite detaylari fare uzerine gelince tooltip'te gorunur
+  presetTooltip(preset: Preset): string {
+    return [
+      this.resolutionLabel(preset),
+      `${preset.width}x${preset.height}`,
+      `${preset.videoBitrate} kbps`,
+      preset.videoCodec,
+    ]
+      .filter(Boolean)
+      .join(' • ');
+  }
+
   addNewSet() {
     this.isEditMode = false;
     this.editingSetId = null;

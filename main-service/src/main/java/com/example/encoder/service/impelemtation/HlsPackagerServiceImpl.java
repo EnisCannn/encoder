@@ -42,6 +42,10 @@ public class HlsPackagerServiceImpl implements HlsPackagerService {
     @Value("${encoder.ffmpeg.ffprobe-path:ffprobe}")
     private String ffprobePath;
 
+    // ffmpeg takilirsa istegi sonsuza kadar bloklamasin
+    @Value("${encoder.ffmpeg.tool-timeout-seconds:1800}")
+    private long toolTimeoutSeconds;
+
     @Override
     public Path packageBatch(UUID batchId) {
         List<EncodingJob> jobs = jobRepository.findByBatchIdOrderByCreatedAtAsc(batchId).stream()
@@ -192,24 +196,14 @@ public class HlsPackagerServiceImpl implements HlsPackagerService {
     // GİZLİ METOT: Ortak süreç çalıştırıcı
     private String runProcess(List<String> command, String label) {
         try {
-            ProcessBuilder builder = new ProcessBuilder(command);
-            builder.redirectErrorStream(true);
-            Process process = builder.start();
+            com.example.encoder.util.FFmpegProcessRunner.Result result =
+                    com.example.encoder.util.FFmpegProcessRunner.run(command, toolTimeoutSeconds);
 
-            StringBuilder output = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append('\n');
-                }
+            if (!result.isSuccess()) {
+                throw new RuntimeException(label + " başarısız (çıkış kodu "
+                        + result.exitCode() + "): " + result.output());
             }
-
-            int exitCode = process.waitFor();
-            if (exitCode != 0) {
-                throw new RuntimeException(label + " başarısız (çıkış kodu " + exitCode + "): " + output);
-            }
-            return output.toString();
+            return result.output();
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

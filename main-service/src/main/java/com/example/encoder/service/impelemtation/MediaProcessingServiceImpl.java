@@ -24,6 +24,10 @@ public class MediaProcessingServiceImpl implements MediaProcessingService {
     @Value("${encoder.folder.output}")
     private String outputFolder;
 
+    // ffmpeg takilirsa istegi sonsuza kadar bloklamasin
+    @Value("${encoder.ffmpeg.encode-timeout-seconds:7200}")
+    private long encodeTimeoutSeconds;
+
     @Override
     public String encodeVideo(String fileName, UUID presetId) {
         // 1. Veritabanından preset ayarlarını çek
@@ -57,20 +61,12 @@ public class MediaProcessingServiceImpl implements MediaProcessingService {
             System.out.println("=============================================");
 
             ProcessBuilder processBuilder = new ProcessBuilder(command);
-            processBuilder.redirectErrorStream(true);
-            Process process = processBuilder.start();
+            com.example.encoder.util.FFmpegProcessRunner.Result result =
+                    com.example.encoder.util.FFmpegProcessRunner.run(
+                            processBuilder.command(), encodeTimeoutSeconds,
+                            line -> System.out.println("[FFmpeg LOG]: " + line));
 
-            // FFmpeg'in ürettiği logları anlık okuyup tıkanmayı engelliyoruz
-            try (java.io.BufferedReader reader = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    System.out.println("[FFmpeg LOG]: " + line);
-                }
-            }
-
-            // Artık loglar boşaltıldığı için FFmpeg rahatça bitip bu satıra ulaşabilecek
-            int exitCode = process.waitFor();
+            int exitCode = result.exitCode();
 
             if (exitCode == 0) {
                 return "GERÇEK VİDEO ENCODING BAŞARILI!\nÇıktı Konumu: " + outputPath;
@@ -78,7 +74,7 @@ public class MediaProcessingServiceImpl implements MediaProcessingService {
                 return "FFmpeg dönüştürme sırasında hata kodu döndürdü: " + exitCode;
             }
 
-        } catch (IOException | InterruptedException e) {
+        } catch (Exception e) {
             return "Sistem hatası oluştu: " + e.getMessage();
         }
     }

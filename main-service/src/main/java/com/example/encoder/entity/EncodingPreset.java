@@ -52,6 +52,12 @@ public class EncodingPreset {
     private Integer audioSampleRate;
     private Integer audioChannels;
 
+    /**
+     * Kalibrasyon taramasi icin uretilmis gecici sablon. Sablonlar listesinde
+     * gorunmez; amaci tek bir olcum noktasi uretmek, yeniden kullanilmak degil.
+     */
+    private Boolean calibration = false;
+
     private Boolean isActive = true;
 
     @Column(updatable = false)

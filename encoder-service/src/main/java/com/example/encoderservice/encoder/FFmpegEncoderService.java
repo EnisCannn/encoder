@@ -8,8 +8,9 @@ import com.example.encoderservice.repository.EncodingJobRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import com.example.encoderservice.util.FFmpegProcessRunner;
+import org.springframework.beans.factory.annotation.Value;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +20,10 @@ import java.util.List;
 public class FFmpegEncoderService implements EncoderService {
 
     private final EncodingJobRepository jobRepository;
+
+    // Takilan bir ffmpeg surecinin worker'i sonsuza kadar mesgul etmesini engeller
+    @Value("${encoder.ffmpeg.encode-timeout-seconds:7200}")
+    private long encodeTimeoutSeconds;
 
     @Override
     public EncodingResult encode(EncodingJob job, Path output) {
@@ -114,47 +119,15 @@ public class FFmpegEncoderService implements EncoderService {
         command.add(output.toString());
 
         try {
-            ProcessBuilder builder = new ProcessBuilder(command);
-            builder.redirectErrorStream(true);
-
             System.out.println("--- FFMPEG MOTORU ÇALIŞMAYA BAŞLADI (Job ID: " + job.getId() + ") ---");
             System.out.println("[FFMPEG CMD]: " + String.join(" ", command));
-            Process process = builder.start();
 
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if (line.contains("time=")) {
-                        try {
-                            int timeIndex = line.indexOf("time=") + 5;
-                            String timeString = line.substring(timeIndex, timeIndex + 11);
+            // Ilerleme okuma cagiran thread'de kaliyor; jobRepository yazmasi
+            // scheduler thread'inde oldugu gibi devam ediyor.
+            FFmpegProcessRunner.Result result = FFmpegProcessRunner.run(
+                    command, encodeTimeoutSeconds, line -> updateProgress(job, video, line));
 
-                            String[] parts = timeString.split(":");
-                            int hours = Integer.parseInt(parts[0]);
-                            int minutes = Integer.parseInt(parts[1]);
-                            double seconds = Double.parseDouble(parts[2]);
-
-                            double currentSeconds = (hours * 3600) + (minutes * 60) + seconds;
-
-                            if (video.getDuration() != null && video.getDuration().doubleValue() > 0) {
-                                double totalSeconds = video.getDuration().doubleValue();
-                                int progress = (int) Math.round((currentSeconds / totalSeconds) * 100);
-                                progress = Math.min(progress, 100);
-
-                                if (job.getProgress() == null || !job.getProgress().equals(progress)) {
-                                    job.setProgress(progress);
-                                    jobRepository.saveAndFlush(job);
-                                    System.out.println("[PROGRESS]: %" + progress + " tamamlandı.");
-                                }
-                            }
-                        } catch (Exception e) {
-                            // Beklenmedik format gelirse atla
-                        }
-                    }
-                }
-            }
-
-            int exitCode = process.waitFor();
+            int exitCode = result.exitCode();
             System.out.println("--- FFMPEG MOTORU DURDU, Çıkış Kodu: " + exitCode + " ---");
 
             return EncodingResult.builder()
@@ -170,6 +143,38 @@ public class FFmpegEncoderService implements EncoderService {
                     .success(false)
                     .errorMessage("Sistem hatası: " + e.getMessage())
                     .build();
+        }
+    }
+
+    /** ffmpeg'in "time=00:00:12.34" satirindan yuzdelik ilerlemeyi cikarip kaydeder. */
+    private void updateProgress(EncodingJob job, Video video, String line) {
+        if (!line.contains("time=")) {
+            return;
+        }
+        try {
+            int timeIndex = line.indexOf("time=") + 5;
+            String timeString = line.substring(timeIndex, timeIndex + 11);
+
+            String[] parts = timeString.split(":");
+            int hours = Integer.parseInt(parts[0]);
+            int minutes = Integer.parseInt(parts[1]);
+            double seconds = Double.parseDouble(parts[2]);
+
+            double currentSeconds = (hours * 3600) + (minutes * 60) + seconds;
+
+            if (video.getDuration() != null && video.getDuration().doubleValue() > 0) {
+                double totalSeconds = video.getDuration().doubleValue();
+                int progress = (int) Math.round((currentSeconds / totalSeconds) * 100);
+                progress = Math.min(progress, 100);
+
+                if (job.getProgress() == null || !job.getProgress().equals(progress)) {
+                    job.setProgress(progress);
+                    jobRepository.saveAndFlush(job);
+                    System.out.println("[PROGRESS]: %" + progress + " tamamlandı.");
+                }
+            }
+        } catch (Exception e) {
+            // Beklenmedik format gelirse atla
         }
     }
 }
