@@ -10,6 +10,7 @@ import { CommonModule } from '@angular/common';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -19,7 +20,7 @@ import { MatSliderModule } from '@angular/material/slider';
 import { FormsModule } from '@angular/forms';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCardModule } from '@angular/material/card';
-import { Subscription, timer } from 'rxjs';
+import { Subscription, timer , forkJoin} from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { LiveStreamService, LiveStream } from '../../services/live-stream.service';
 import { PresetService } from '../../services/preset.service';
@@ -34,6 +35,7 @@ import Hls from 'hls.js';
     MatTableModule,
     MatButtonModule,
     MatIconModule,
+    MatMenuModule,
     MatProgressBarModule,
     MatDialogModule,
     MatFormFieldModule,
@@ -48,7 +50,8 @@ import Hls from 'hls.js';
   styleUrls: ['./live-stream.css'],
 })
 export class LiveStreamComponent implements OnInit, OnDestroy {
-  displayedColumns: string[] = ['streamName', 'status', 'actions'];
+  displayedColumns: string[] = [
+    'select','streamName', 'status', 'actions'];
   dataSource = new MatTableDataSource<LiveStream>([]);
   presets: Preset[] = [];
 
@@ -96,6 +99,16 @@ export class LiveStreamComponent implements OnInit, OnDestroy {
     public dialog: MatDialog,
     private cdr: ChangeDetectorRef,
   ) {}
+
+  /**
+   * Satirlari kimlige gore esler.
+   *
+   * Liste 2 saniyede bir yeniden cekiliyor ve dataSource.data bastan
+   * atandigi icin trackBy olmadan butun satirlar yok edilip yeniden
+   * kuruluyordu. Acik olan uc nokta menusunun tetikleyicisi de yok
+   * oldugu icin menu tiklamaya firsat kalmadan kapaniyordu.
+   */
+  trackByStream = (_: number, row: any) => row.id;
 
   ngOnInit() {
     this.presetService.getAllPresets().subscribe((data) => (this.presets = data));
@@ -145,6 +158,88 @@ export class LiveStreamComponent implements OnInit, OnDestroy {
         error: (err) => console.error('Durdurma hatası:', err),
       });
     }
+  }
+
+
+  // ---------- Coklu secim ve toplu silme ----------
+  // Satir eylemleri uc nokta menusune tasindi. Ayni islemi cok satirda yapmak
+  // her satir icin menu acmak demek olurdu; bunun yerine secim kutulari ve
+  // secim yapilinca beliren bir toplu islem seridi var.
+
+  selectedIds = new Set<string>();
+  isBulkBusy = false;
+
+  private get visibleRows(): any[] {
+    return this.dataSource.filteredData;
+  }
+
+  isSelected(row: any): boolean {
+    return this.selectedIds.has(row.id);
+  }
+
+  toggleRow(row: any) {
+    if (this.selectedIds.has(row.id)) {
+      this.selectedIds.delete(row.id);
+    } else {
+      this.selectedIds.add(row.id);
+    }
+  }
+
+  get allVisibleSelected(): boolean {
+    const rows = this.visibleRows;
+    return rows.length > 0 && rows.every((r) => this.selectedIds.has(r.id));
+  }
+
+  /** Bazisi secili: baslik kutusu belirsiz gorunsun. */
+  get someVisibleSelected(): boolean {
+    const rows = this.visibleRows;
+    return rows.some((r) => this.selectedIds.has(r.id)) && !this.allVisibleSelected;
+  }
+
+  toggleAll() {
+    if (this.allVisibleSelected) {
+      this.visibleRows.forEach((r) => this.selectedIds.delete(r.id));
+    } else {
+      this.visibleRows.forEach((r) => this.selectedIds.add(r.id));
+    }
+  }
+
+  clearSelection() {
+    this.selectedIds.clear();
+  }
+
+  get selectedCount(): number {
+    return this.visibleRows.filter((r) => this.selectedIds.has(r.id)).length;
+  }
+
+  /** Silme ucu tekil; secilen her kayit icin ayri istek atilip hepsi beklenir. */
+  bulkDelete() {
+    const ids = this.visibleRows.filter((r) => this.selectedIds.has(r.id)).map((r) => r.id);
+    if (ids.length === 0) return;
+    if (!confirm(ids.length + ' yayın kaydı silinecek. Emin misiniz?')) return;
+
+    this.isBulkBusy = true;
+    forkJoin(ids.map((id) => this.liveService.deleteStream(id))).subscribe({
+      next: () => this.bulkDone(),
+      error: (err) => {
+        console.error('Toplu silme hatası', err);
+        this.bulkDone();
+      },
+    });
+  }
+
+  private bulkDone() {
+    this.isBulkBusy = false;
+    this.clearSelection();
+    this.refreshStreams();
+  }
+
+  /** Toplu islemden sonra listeyi bir kez tazeler (normalde zamanlayici yeniler). */
+  private refreshStreams() {
+    this.liveService.getAllStreams().subscribe({
+      next: (data) => (this.dataSource.data = data),
+      error: (err) => console.error('Yayınlar çekilemedi', err),
+    });
   }
 
   deleteStream(id: string) {

@@ -55,14 +55,9 @@ public class EncodingJobServiceImpl implements EncodingJobService {
             EncodingPreset preset = presetRepository.findById(request.getPresetId())
                     .orElseThrow(() -> new RuntimeException("Preset bulunamadı!"));
 
-            // Cikti adi yalnizca kaynak dosya adindan turetiliyordu: ayni videoyu iki
-            // farkli sablonla donusturunce ikisi de "encoded_<video>.mp4" dosyasina
-            // yaziyor ve ikincisi birincinin uzerine biniyordu. Artik sablon adi ve
-            // kisa bir benzersiz on ek ile her isin kendi dosyasi var.
             String outName = request.getOutputFileName() != null
                     ? request.getOutputFileName()
-                    : "encoded_" + UUID.randomUUID().toString().substring(0, 8)
-                      + "_" + buildRenditionFileName(preset);
+                    : buildSingleOutputFileName(video, preset);
 
             // Tekli işte altyazı klasörü çakışmasın diye rastgele bir alt klasör kullanılıyor
             String vttFileName = prepareSidecarSubtitle(request, "subtitles/" + UUID.randomUUID());
@@ -155,6 +150,60 @@ public class EncodingJobServiceImpl implements EncodingJobService {
      * Paket çıktısı için dosya adı: "720p_Web_720p_Tasarruf.mp4" gibi.
      * Çözünürlük başa alınıyor ki klasör listesi kalite sırasına göre okunabilir olsun.
      */
+    /**
+     * Tekli isin cikti dosya adi.
+     *
+     * Eski sema "encoded_{rastgele}_{yukseklik}p_{sablon adi}.mp4" idi ve uc
+     * sorunu vardi: kaynak videonun adi hic gecmiyordu (dosyaya bakip hangi
+     * videodan geldigi anlasilmiyordu), rastgele on ek BASTA oldugu icin klasor
+     * alfabetik siralandiginda ayni videonun ciktilari birbirinden ayri
+     * dusuyordu, ve yukseklik hem on ekte hem sablon adinin icinde tekrarliyordu.
+     *
+     * Yeni sema anlamli parcalari one aliyor, benzersizlik kodunu sona:
+     *   test_video_1080p_4000k_24fps_2e78eb1a.mp4
+     * Boylece siralama once kaynaga, sonra cozunurluge gore grupluyor.
+     *
+     * Ad sablon ADINDAN degil sablonun ALANLARINDAN uretiliyor: sablon adi
+     * kullanicinin yazdigi serbest metin, icinde zaten cozunurluk gecince
+     * tekrar olusuyordu. Kare hizi yalnizca zorlandiginda yaziliyor; bos
+     * birakildiginda kaynagin hizi korundugu icin ada yazmanin bilgisi yok.
+     */
+    private String buildSingleOutputFileName(Video video, EncodingPreset preset) {
+        StringBuilder name = new StringBuilder(sourceLabel(video));
+
+        if (preset.getHeight() != null) {
+            name.append('_').append(preset.getHeight()).append('p');
+        }
+        if (preset.getVideoBitrate() != null) {
+            name.append('_').append(preset.getVideoBitrate()).append('k');
+        }
+        if (preset.getFrameRate() != null) {
+            name.append('_')
+                .append(preset.getFrameRate().stripTrailingZeros().toPlainString())
+                .append("fps");
+        }
+        name.append('_').append(UUID.randomUUID().toString().substring(0, 8)).append(".mp4");
+        return name.toString();
+    }
+
+    /** Kaynak dosya adi: uzantisiz, dosya sisteminde guvenli, makul uzunlukta. */
+    private String sourceLabel(Video video) {
+        String raw = video != null ? video.getOriginalFileName() : null;
+        if (raw == null || raw.isBlank()) {
+            return "video";
+        }
+        int dot = raw.lastIndexOf('.');
+        if (dot > 0) {
+            raw = raw.substring(0, dot);
+        }
+        String safe = raw.replaceAll("[^A-Za-z0-9.-]", "_").replaceAll("_+", "_");
+        if (safe.length() > 40) {
+            safe = safe.substring(0, 40);
+        }
+        return safe.isBlank() ? "video" : safe;
+    }
+
+    /** Paket modunda kullaniliyor: ciktilar zaten batch klasorunun altinda. */
     private String buildRenditionFileName(EncodingPreset preset) {
         String safeName = preset.getName().replaceAll("[^A-Za-z0-9._-]", "_");
         String prefix = preset.getHeight() != null ? preset.getHeight() + "p_" : "";

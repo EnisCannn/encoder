@@ -6,3 +6,10 @@ svg text {
 svg circle {
   cursor: pointer;
 }
+
+/* Karar matrisi ipucu: skorlar alt alta okunsun. Material ipucunu bilesenin
+   disinda bir overlay'e basiyor, o yuzden ::ng-deep gerekiyor. */
+::ng-deep .onerituyu {
+  white-space: pre-line;
+  max-width: 260px;
+}

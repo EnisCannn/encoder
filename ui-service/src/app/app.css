@@ -1,63 +1,144 @@
-/* Menüyü ekranın en üstüne sabitler ve KESİN OLARAK MAVİ yapar */
-.header-navbar {
+/* Uygulama kabugu: solda sabit menu, sagda kayan icerik.
+   Onceden ustte yatay bir mat-toolbar vardi; sayfa sayisi arttikca yatayda
+   yer kalmiyordu ve aktif sayfa zor secilyordu. */
+
+.shell {
   display: flex;
-  align-items: center;
-  padding: 0 24px;
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  background-color: #1976d2 !important; /* DÜZELTME: Kurumsal koyu mavi arka plan */
-  color: white !important; /* Başlık rengini beyaz yaptık */
+  min-height: 100vh;
 }
 
-/* Sol taraftaki başlık */
+/* ---------------- Sol menu ---------------- */
+
+.sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-  font-size: 18px;
+  gap: var(--s3);
+  padding: var(--s4) var(--s4) var(--s5);
 }
 
-.spacer {
-  flex: 1 1 auto;
+.brand > .mat-icon {
+  font-size: 26px;
+  width: 26px;
+  height: 26px;
+  color: var(--accent);
+  flex-shrink: 0;
 }
 
-.nav-links {
+.brand-text {
   display: flex;
-  gap: 15px;
+  flex-direction: column;
+  line-height: 1.25;
+  min-width: 0;
 }
 
-/* Buton haline getirilmiş linklerin normal görünümü */
-.nav-links a {
+.brand-name {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.brand-sub {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 var(--s2);
+}
+
+.nav-item {
   display: flex;
   align-items: center;
-  font-size: 15px;
-  border-radius: 6px;
-  padding: 0 16px;
-  color: rgba(255, 255, 255, 0.85) !important; /* Beyaz yazılar artık mavi arka planda parlayacak */
-  transition: all 0.2s ease-in-out;
+  gap: var(--s3);
+  height: 38px;
+  padding: 0 var(--s3);
+  border-radius: var(--r-sm);
+  color: var(--text-dim);
+  font-size: var(--fs-base);
   text-decoration: none;
   cursor: pointer;
+  /* Aktif cizgiyi tasiyan seffaf kenarlik: aktif olunca renk aliyor,
+     boylece satirlar aktif olup olmamasina gore kaymiyor. */
+  border-left: 2px solid transparent;
+  transition: background 0.15s, color 0.15s;
 }
 
-/* Linklerin üzerine gelindiğindeki parlama */
-.nav-links a:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #fff !important;
+.nav-item .mat-icon {
+  font-size: 19px;
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
 }
 
-/* Hangi sayfadaysak o linki belirginleştirme (Aktif Sayfa Zekası) */
-.active-link {
-  background-color: rgba(255, 255, 255, 0.25) !important;
-  color: #ffffff !important;
-  font-weight: 500;
+.nav-item:hover {
+  background: var(--surface-2);
+  color: var(--text);
 }
 
-/* İçeriklerin çok fazla yayılmasını engelleyip ortalayan taşıyıcı */
-.content-container {
-  padding: 10px;
-  max-width: 1600px;
-  margin: 0 auto;
+.nav-item.active {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---------------- Icerik ---------------- */
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Dar ekranda menu ustte yatay bir seride donusuyor */
+@media (max-width: 860px) {
+  .shell {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: auto;
+    height: auto;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand {
+    padding: var(--s3) var(--s4);
+  }
+
+  .nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0 var(--s2) var(--s2);
+  }
+
+  .nav-item {
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+
+  .nav-item.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--accent);
+  }
 }

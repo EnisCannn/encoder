@@ -1,119 +1,172 @@
-<div style="margin: 20px;">
+<div class="page">
 
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <div matTooltip="Kayıtlı Şablonlar" style="display: flex; align-items: center; justify-content: center; background: #eef2f6; padding: 10px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-      <mat-icon style="font-size: 32px; width: 32px; height: 32px; color: #1976d2;">tune</mat-icon>
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Şablonlar</h1>
+      <p class="page-sub">
+        {{ dataSource.filteredData.length }} şablon gösteriliyor ·
+        {{ dataSource.data.length }} kayıtlı, {{ calibrationCount }} tanesi kalibrasyon
+      </p>
     </div>
-    <button mat-raised-button color="primary" (click)="addNewPreset()">
-      <mat-icon>add</mat-icon> Yeni Şablon Oluştur
+    <button class="btn-primary" (click)="addNewPreset()">
+      <mat-icon>add</mat-icon> Yeni Şablon
     </button>
   </div>
 
-  <!-- Bütün alanların sığdırıldığı kompakt filtreleme kartı -->
-  <mat-card style="margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); background-color: #f8f9fa;">
-    <mat-card-content style="padding: 0;">
-      <!-- subscriptSizing="dynamic" kullanılarak alt boşluklar kaldırıldı, flex-wrap ve font-size küçültüldü -->
-      <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+  <!--
+    Filtre cubugu. Eskiden 9 alan surekli ekranda duruyor ve altinda iki dugme
+    daha vardi. Artik ad/ID aramasi her zaman gorunur, kalan alanlar katlanir
+    panelde; filtreler aninda uygulandigi icin "Filtrele" dugmesi kalkti.
+  -->
+  <div class="filterbar">
+    <div class="search">
+      <mat-icon>search</mat-icon>
+      <input [(ngModel)]="topSearch.name" (ngModelChange)="applyTopFilters()"
+             placeholder="Şablon adı ara..." />
+    </div>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 90px; font-size: 13px;">
-          <mat-label>ID (Ara)</mat-label>
-          <input matInput [(ngModel)]="topSearch.id" />
-        </mat-form-field>
+    <button class="btn" [class.on]="showFilters" (click)="toggleFilters()">
+      <mat-icon>tune</mat-icon> Filtreler
+      <span class="count" *ngIf="activeFilters.length">{{ activeFilters.length }}</span>
+    </button>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 100px; font-size: 13px;">
-          <mat-label>Şablon Adı</mat-label>
-          <input matInput [(ngModel)]="topSearch.name" />
-        </mat-form-field>
+    <button class="btn" *ngIf="activeFilters.length" (click)="clearTopFilters()">
+      <mat-icon>close</mat-icon> Temizle
+    </button>
+  </div>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 90px; font-size: 13px;">
-          <mat-label>Format</mat-label>
-          <mat-select [(ngModel)]="topSearch.format">
-            <mat-option value="">Tümü</mat-option>
-            <mat-option value="MP4">MP4</mat-option>
-            <mat-option value="MKV">MKV</mat-option>
-            <mat-option value="HLS">HLS</mat-option>
-          </mat-select>
-        </mat-form-field>
+  <div class="filter-panel" *ngIf="showFilters">
+    <div class="field">
+      <label>Tür</label>
+      <select [(ngModel)]="topSearch.tur" (ngModelChange)="applyTopFilters()">
+        <option value="normal">Kendi şablonlarım</option>
+        <option value="kalibrasyon">Kalibrasyon</option>
+        <option value="">Tümü</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>ID</label>
+      <input [(ngModel)]="topSearch.id" (ngModelChange)="applyTopFilters()" placeholder="Ara..." />
+    </div>
+    <div class="field">
+      <label>Format</label>
+      <select [(ngModel)]="topSearch.format" (ngModelChange)="applyTopFilters()">
+        <option value="">Tümü</option>
+        <option value="MP4">MP4</option>
+        <option value="MKV">MKV</option>
+        <option value="HLS">HLS</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Video Codec</label>
+      <select [(ngModel)]="topSearch.videoCodec" (ngModelChange)="applyTopFilters()">
+        <option value="">Tümü</option>
+        <option value="H264">H264</option>
+        <option value="H265">H265</option>
+        <option value="AV1">AV1</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Çözünürlük</label>
+      <input [(ngModel)]="topSearch.resolution" (ngModelChange)="applyTopFilters()" placeholder="Örn: 1920" />
+    </div>
+    <div class="field">
+      <label>Video Bitrate</label>
+      <input [(ngModel)]="topSearch.videoBitrate" (ngModelChange)="applyTopFilters()" placeholder="Kbps" />
+    </div>
+    <div class="field">
+      <label>Audio Codec</label>
+      <select [(ngModel)]="topSearch.audioCodec" (ngModelChange)="applyTopFilters()">
+        <option value="">Tümü</option>
+        <option value="AAC">AAC</option>
+        <option value="OPUS">OPUS</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Audio Bitrate</label>
+      <select [(ngModel)]="topSearch.audioBitrate" (ngModelChange)="applyTopFilters()">
+        <option value="">Tümü</option>
+        <option value="64">64</option>
+        <option value="96">96</option>
+        <option value="128">128</option>
+        <option value="192">192</option>
+        <option value="256">256</option>
+        <option value="320">320</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>FPS</label>
+      <select [(ngModel)]="topSearch.frameRate" (ngModelChange)="applyTopFilters()">
+        <option value="">Tümü</option>
+        <option value="24">24</option>
+        <option value="25">25</option>
+        <option value="30">30</option>
+        <option value="48">48</option>
+        <option value="50">50</option>
+        <option value="60">60</option>
+      </select>
+    </div>
+  </div>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 90px; font-size: 13px;">
-          <mat-label>V. Codec</mat-label>
-          <mat-select [(ngModel)]="topSearch.videoCodec">
-            <mat-option value="">Tümü</mat-option>
-            <mat-option value="H264">H264</mat-option>
-            <mat-option value="H265">H265</mat-option>
-            <mat-option value="AV1">AV1</mat-option>
-          </mat-select>
-        </mat-form-field>
+  <div class="chips" *ngIf="activeFilters.length">
+    <span class="chip" *ngFor="let f of activeFilters">
+      {{ f.label }}: {{ f.value }}
+      <button (click)="removeFilter(f.key)" [attr.aria-label]="f.label + ' filtresini kaldır'">
+        <mat-icon>close</mat-icon>
+      </button>
+    </span>
+  </div>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 90px; font-size: 13px;">
-          <mat-label>Çözünürlük</mat-label>
-          <input matInput [(ngModel)]="topSearch.resolution" placeholder="Örn: 1920" />
-        </mat-form-field>
+  <div class="bulkbar" *ngIf="selectedCount">
+    <span class="n">{{ selectedCount }} şablon seçili</span>
+    <span class="sep"></span>
+    <button class="btn danger" (click)="bulkDelete()" [disabled]="isBulkBusy">
+      <mat-icon>delete</mat-icon> Sil
+    </button>
+    <button class="btn" (click)="clearSelection()" [disabled]="isBulkBusy">
+      <mat-icon>close</mat-icon> Seçimi bırak
+    </button>
+  </div>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 90px; font-size: 13px;">
-          <mat-label>V. Bitrate</mat-label>
-          <input matInput [(ngModel)]="topSearch.videoBitrate" placeholder="Kbps..." />
-        </mat-form-field>
+  <div class="table-wrap">
+    <div class="table-scroll">
+    <table mat-table [dataSource]="dataSource" matSort style="width: 100%; min-width: 1000px;">
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 90px; font-size: 13px;">
-          <mat-label>A. Codec</mat-label>
-          <mat-select [(ngModel)]="topSearch.audioCodec">
-            <mat-option value="">Tümü</mat-option>
-            <mat-option value="AAC">AAC</mat-option>
-            <mat-option value="OPUS">OPUS</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 90px; font-size: 13px;">
-          <mat-label>A. Bitrate</mat-label>
-          <mat-select [(ngModel)]="topSearch.audioBitrate">
-            <mat-option value="">Tümü</mat-option>
-            <mat-option value="64">64</mat-option>
-            <mat-option value="96">96</mat-option>
-            <mat-option value="128">128</mat-option>
-            <mat-option value="192">192</mat-option>
-            <mat-option value="256">256</mat-option>
-            <mat-option value="320">320</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 80px; font-size: 13px;">
-          <mat-label>FPS</mat-label>
-          <mat-select [(ngModel)]="topSearch.frameRate">
-            <mat-option value="">Tümü</mat-option>
-            <mat-option value="24">24</mat-option>
-            <mat-option value="25">25</mat-option>
-            <mat-option value="30">30</mat-option>
-            <mat-option value="48">48</mat-option>
-            <mat-option value="50">50</mat-option>
-            <mat-option value="60">60</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-      </div>
-
-      <div style="display: flex; gap: 10px; margin-top: 15px;">
-        <button mat-stroked-button (click)="applyTopFilters()" style="border-radius: 20px; color: #1976d2; border-color: #d0d0d0; padding: 0 16px; background-color: #fff;">
-          <mat-icon style="margin-right: 4px; font-size: 18px; width: 18px; height: 18px;">search</mat-icon> Filtrele
-        </button>
-        <button mat-stroked-button (click)="clearTopFilters()" style="border-radius: 20px; color: #1976d2; border-color: #d0d0d0; padding: 0 16px; background-color: #fff;">
-          <mat-icon style="margin-right: 4px; font-size: 18px; width: 18px; height: 18px;">close</mat-icon> Temizle
-        </button>
-      </div>
-    </mat-card-content>
-  </mat-card>
-
-  <div style="overflow-x: auto;">
-    <table mat-table [dataSource]="dataSource" matSort class="mat-elevation-z8" style="width: 100%; min-width: 1000px; border-bottom-left-radius: 0; border-bottom-right-radius: 0;">
+      <ng-container matColumnDef="select">
+        <th mat-header-cell *matHeaderCellDef style="width: 40px;">
+          <input type="checkbox" class="check"
+                 [checked]="allVisibleSelected" [indeterminate]="someVisibleSelected"
+                 (change)="toggleAll()" matTooltip="Görünen tüm satırları seç" />
+        </th>
+        <td mat-cell *matCellDef="let row">
+          <input type="checkbox" class="check"
+                 [checked]="isSelected(row)" (change)="toggleRow(row)"
+                 (click)="$event.stopPropagation()" />
+        </td>
+      </ng-container>
 
       <ng-container matColumnDef="id">
         <th mat-header-cell *matHeaderCellDef mat-sort-header> ID </th>
-        <td mat-cell *matCellDef="let element" style="color: #7f8c8d; font-size: 13px;" [matTooltip]="element.id">{{ element.id | slice:0:8 }}...</td>
+        <td mat-cell *matCellDef="let element" style="color: var(--text-muted); font-family: monospace;" [matTooltip]="element.id">{{ element.id | slice:0:8 }}...</td>
       </ng-container>
 
       <ng-container matColumnDef="name">
         <th mat-header-cell *matHeaderCellDef mat-sort-header> Şablon Adı </th>
-        <td mat-cell *matCellDef="let element"> <b>{{element.name}}</b> </td>
+        <td mat-cell *matCellDef="let element">
+          <div style="display: flex; align-items: center; gap: var(--s2); min-width: 0;">
+            <b style="white-space: nowrap;">{{ element.name }}</b>
+            <!-- Kalibrasyon sablonlari tarama tarafindan uretiliyor; elle
+                 olusturulanlardan ayirt edilebilsin diye isaretleniyor -->
+            <span *ngIf="element.calibration"
+                  matTooltip="Kalite taraması tarafından otomatik oluşturuldu"
+                  style="flex-shrink: 0; font-size: var(--fs-xs); font-weight: 600;
+                         letter-spacing: 0.04em; text-transform: uppercase;
+                         color: var(--text-muted); border: 1px solid var(--border);
+                         border-radius: var(--r-pill); padding: 1px 7px; line-height: 1.5;">
+              oto
+            </span>
+          </div>
+        </td>
       </ng-container>
 
       <ng-container matColumnDef="format">
@@ -152,17 +205,34 @@
       </ng-container>
 
       <ng-container matColumnDef="actions">
-        <th mat-header-cell *matHeaderCellDef style="text-align: right;"> İşlemler </th>
+        <th mat-header-cell *matHeaderCellDef style="text-align: right; width: 56px;"></th>
         <td mat-cell *matCellDef="let element" style="text-align: right;">
-          <button mat-icon-button color="primary" (click)="editPreset(element)" matTooltip="Düzenle"><mat-icon>edit</mat-icon></button>
-          <button mat-icon-button color="warn" (click)="deletePreset(element.id)" matTooltip="Sil"><mat-icon>delete</mat-icon></button>
+          <button mat-icon-button class="rowmenu" [matMenuTriggerFor]="rowMenu" matTooltip="İşlemler">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #rowMenu="matMenu">
+            <button mat-menu-item (click)="editPreset(element)">
+              <mat-icon>edit</mat-icon> <span>Düzenle</span>
+            </button>
+            <button mat-menu-item (click)="deletePreset(element.id)" style="color: var(--danger);">
+              <mat-icon style="color: var(--danger);">delete</mat-icon> <span>Sil</span>
+            </button>
+          </mat-menu>
         </td>
       </ng-container>
 
       <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
       <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
     </table>
-    <mat-paginator [pageSizeOptions]="[10, 20, 30]" showFirstLastButtons class="mat-elevation-z8" style="border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;"></mat-paginator>
+    </div>
+
+    <div class="empty" *ngIf="dataSource.filteredData.length === 0">
+      <mat-icon>style</mat-icon>
+      <p *ngIf="dataSource.data.length === 0">Henüz şablon oluşturulmamış.</p>
+      <p *ngIf="dataSource.data.length > 0">Bu filtrelerle eşleşen şablon yok.</p>
+    </div>
+
+    <mat-paginator [pageSizeOptions]="[10, 20, 30]" showFirstLastButtons></mat-paginator>
   </div>
 </div>
 

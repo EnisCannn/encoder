@@ -39,7 +39,13 @@ export interface Job {
   outputFileName?: string;
   status: string;
   progress: number;
-  preset?: { name: string; width?: number; height?: number };
+  preset?: {
+    name: string;
+    width?: number;
+    height?: number;
+    videoBitrate?: number;
+    frameRate?: number | string | null;
+  };
   videoId?: string;
   createdAt?: string;
   batchId?: string | null;
@@ -100,12 +106,13 @@ export interface JobRow {
 })
 export class JobComponent implements OnInit, OnDestroy {
   displayedColumns: string[] = [
+    'select',
     'id',
     'inputFileName',
     'batch',
     'presetName',
     'status',
-    'progress',
+    'vmaf',
     'actions',
   ];
   dataSource = new MatTableDataSource<JobRow>([]);
@@ -235,10 +242,46 @@ export class JobComponent implements OnInit, OnDestroy {
           return row.status;
         case 'progress':
           return row.progress;
+        case 'vmaf':
+          // Olculmemis satirlar -1 ile en alta duser; 0 verilseydi gercekten
+          // cok dusuk skor almis satirlarla karisirdi.
+          return row.averageVmaf ?? -1;
         default:
           return '';
       }
     };
+  }
+
+  /** Filtre paneli acik mi; arama alani her zaman gorunur, gerisi katlanir. */
+  showFilters = false;
+
+  private readonly filterLabels: Record<string, string> = {
+    id: 'ID', inputFileName: 'Video', presetName: 'Şablon', status: 'Durum',
+  };
+
+  private readonly statusLabels: Record<string, string> = {
+    COMPLETED: 'Tamamlandı', PROCESSING: 'İşleniyor',
+    FAILED: 'Başarısız', PENDING: 'Bekliyor',
+  };
+
+  toggleFilters() {
+    this.showFilters = !this.showFilters;
+  }
+
+  /** Dolu filtreler; rozet olarak gosterilip tek tek kaldirilabiliyor. */
+  get activeFilters(): { key: string; label: string; value: string }[] {
+    return Object.entries(this.topSearch)
+      .filter(([, v]) => v !== '' && v != null)
+      .map(([key, value]) => ({
+        key,
+        label: this.filterLabels[key] ?? key,
+        value: key === 'status' ? (this.statusLabels[String(value)] ?? String(value)) : String(value),
+      }));
+  }
+
+  removeFilter(key: string) {
+    (this.topSearch as Record<string, string>)[key] = '';
+    this.applyTopFilters();
   }
 
   applyTopFilters() {
@@ -356,9 +399,28 @@ export class JobComponent implements OnInit, OnDestroy {
   };
 
   // Tabloda yer kaplamasin diye sablon adi yerine cozunurluk yazilir: 1080p
+  /**
+   * Rozette gorunen kalite etiketi.
+   *
+   * Onceden yalnizca "480p" yaziyordu. Ayni kaynaktan 84 cikti uretilince
+   * 28 satir birden "480p" diyordu ve hangisinin hangi bitrate/fps oldugu
+   * anlasilmiyordu; var olan bir is "tabloya dusmemis" gibi gorunuyordu.
+   * Bitrate ve kare hizi da yazilinca her satir tekil hale geliyor.
+   * qualityLabel bunu kullandigi icin arama da bu alanlarda calisiyor.
+   */
   presetQuality(job: Job): string {
-    const height = job.preset?.height;
-    return height ? `${height}p` : (job.preset?.name ?? '');
+    const preset = job.preset;
+    if (!preset) {
+      return '';
+    }
+
+    const parcalar: string[] = [];
+    if (preset.height) parcalar.push(`${preset.height}p`);
+    if (preset.videoBitrate) parcalar.push(`${preset.videoBitrate}k`);
+    // frameRate sunucudan "24.00" gibi gelebiliyor; ondaligi kirpiyoruz
+    if (preset.frameRate) parcalar.push(`${Number(preset.frameRate)}fps`);
+
+    return parcalar.length ? parcalar.join(' · ') : (preset.name ?? '');
   }
 
   presetChipBg(job: Job): string {
@@ -396,13 +458,131 @@ export class JobComponent implements OnInit, OnDestroy {
   }
 
   vmafColor(score: number): string {
-    if (score >= 90) return '#2e7d32';
-    if (score >= 80) return '#558b2f';
-    if (score >= 70) return '#ef6c00';
-    return '#c62828';
+    if (score >= 90) return '#3fb950';
+    if (score >= 80) return '#8fc250';
+    if (score >= 70) return '#d29922';
+    return '#f85149';
   }
 
   /** Satirdaki tum isler icin olcumu kuyruga alir. */
+  // ---------- Coklu secim ve toplu islemler ----------
+  //
+  // Satir eylemleri artik uc nokta menusunde. Ayni islemi 20 satirda yapmak
+  // 20 kez menu acmak demek olurdu; bu yuzden secim kutulari ve ustte beliren
+  // bir toplu islem seridi var. Secim satir anahtarina gore tutuluyor, nesneye
+  // gore degil: liste yenilendiginde ayni satirlar secili kaliyor.
+
+  selectedKeys = new Set<string>();
+  isBulkBusy = false;
+
+  /** Filtreden gecen satirlar; "tumunu sec" bunlar uzerinde calisir. */
+  private get visibleRows(): JobRow[] {
+    return this.dataSource.filteredData;
+  }
+
+  isSelected(row: JobRow): boolean {
+    return this.selectedKeys.has(row.key);
+  }
+
+  toggleRow(row: JobRow) {
+    if (this.selectedKeys.has(row.key)) {
+      this.selectedKeys.delete(row.key);
+    } else {
+      this.selectedKeys.add(row.key);
+    }
+  }
+
+  get allVisibleSelected(): boolean {
+    const rows = this.visibleRows;
+    return rows.length > 0 && rows.every((r) => this.selectedKeys.has(r.key));
+  }
+
+  /** Bazisi secili: baslik kutusu belirsiz (indeterminate) gorunsun. */
+  get someVisibleSelected(): boolean {
+    const rows = this.visibleRows;
+    return rows.some((r) => this.selectedKeys.has(r.key)) && !this.allVisibleSelected;
+  }
+
+  toggleAll() {
+    if (this.allVisibleSelected) {
+      this.visibleRows.forEach((r) => this.selectedKeys.delete(r.key));
+    } else {
+      this.visibleRows.forEach((r) => this.selectedKeys.add(r.key));
+    }
+  }
+
+  clearSelection() {
+    this.selectedKeys.clear();
+  }
+
+  get selectedRows(): JobRow[] {
+    return this.visibleRows.filter((r) => this.selectedKeys.has(r.key));
+  }
+
+  /** Secili satirlarin altindaki tamamlanmis is sayisi (paket satiri cok is tasir). */
+  get selectedMeasurableCount(): number {
+    return this.selectedRows.reduce(
+      (n, r) => n + r.jobs.filter((j) => j.status === 'COMPLETED').length, 0);
+  }
+
+  get selectedJobCount(): number {
+    return this.selectedRows.reduce((n, r) => n + r.jobs.length, 0);
+  }
+
+  /** Olcum ucu zaten liste aliyor: hepsi tek istekte kuyruga giriyor. */
+  bulkMeasure() {
+    const ids = this.selectedRows
+      .flatMap((r) => r.jobs)
+      .filter((j) => j.status === 'COMPLETED')
+      .map((j) => j.id);
+
+    if (ids.length === 0) {
+      alert('Seçilenler arasında ölçülebilecek tamamlanmış çıktı yok.');
+      return;
+    }
+
+    this.isBulkBusy = true;
+    this.jobService.measureQuality(ids).subscribe({
+      next: () => {
+        this.isBulkBusy = false;
+        this.clearSelection();
+        this.loadJobs();
+      },
+      error: (err) => {
+        this.isBulkBusy = false;
+        console.error('Toplu kalite ölçümü başlatılamadı', err);
+        alert('Ölçüm başlatılamadı: ' + (err?.error?.hata ?? 'Bilinmeyen hata'));
+      },
+    });
+  }
+
+  /** Silme ucu tekil; secilen her is icin ayri istek atilip hepsi beklenir. */
+  bulkDelete() {
+    const rows = this.selectedRows;
+    if (rows.length === 0) return;
+
+    const jobCount = this.selectedJobCount;
+    const detay = jobCount > rows.length ? ` (toplam ${jobCount} iş)` : '';
+    if (!confirm(`${rows.length} satır${detay} silinecek. Emin misiniz?`)) return;
+
+    const istekler = rows.flatMap((r) => r.jobs).map((j) => this.jobService.deleteJob(j.id));
+
+    this.isBulkBusy = true;
+    forkJoin(istekler).subscribe({
+      next: () => {
+        this.isBulkBusy = false;
+        this.clearSelection();
+        this.loadJobs();
+      },
+      error: (err) => {
+        this.isBulkBusy = false;
+        console.error('Toplu silme hatası', err);
+        this.clearSelection();
+        this.loadJobs();
+      },
+    });
+  }
+
   measureQuality(row: JobRow) {
     const ids = row.jobs.filter((j) => j.status === 'COMPLETED').map((j) => j.id);
     if (ids.length === 0) {

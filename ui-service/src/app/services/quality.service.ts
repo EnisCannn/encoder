@@ -19,24 +19,15 @@ export interface QualityCurvePoint {
   vmafHarmonicMean: number | null;
   sampledSeconds: number | null;
   measuredAt: string | null;
-}
-
-/** Yüklenmiş kaynak video: tarama formundaki seçici için. */
-export interface SourceVideo {
-  id: string;
-  originalFileName: string;
-  width: number | null;
-  height: number | null;
-  duration: number | null;
-}
-
-/** Bir kalibrasyon taraması isteği. */
-export interface SweepRequest {
-  videoId: string;
-  width: number;
-  height: number;
-  frameRate: number | null;
-  bitrates: number[];
+  /**
+   * Kaynak dosyanin olculeri. Ayni dosya her yuklendiginde yeni bir videoId
+   * aliyor; gruplama bu alanlara gore yapiliyor ki ayni dosyanin uzerinde
+   * farkli zamanlarda yapilan taramalar tek egride birlessin.
+   */
+  sourceSize: number | null;
+  sourceWidth: number | null;
+  sourceHeight: number | null;
+  sourceDuration: number | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -50,12 +41,4 @@ export class QualityService {
     return this.http.get<QualityCurvePoint[]>(`${this.apiUrl}/curves?t=${timestamp}`);
   }
 
-  getSourceVideos(): Observable<SourceVideo[]> {
-    const timestamp = new Date().getTime();
-    return this.http.get<SourceVideo[]>(`http://localhost:8081/api/videos?t=${timestamp}`);
-  }
-
-  startSweep(request: SweepRequest): Observable<any> {
-    return this.http.post(`${this.apiUrl}/sweep`, request);
-  }
 }

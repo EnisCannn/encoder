@@ -1,71 +1,124 @@
-<div style="margin: 20px;">
-  <!-- Başlık ve Kontrol Butonları -->
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <div matTooltip="Dönüştürme İşlemleri" style="display: flex; align-items: center; justify-content: center; background: #eef2f6; padding: 10px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-      <mat-icon style="font-size: 32px; width: 32px; height: 32px; color: #1976d2;">switch_video</mat-icon>
+<div class="page">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">İşlemler</h1>
+      <p class="page-sub">{{ dataSource.data.length }} dönüştürme işi</p>
     </div>
-    <button mat-raised-button color="primary" (click)="openUploadDialog()">
+    <button class="btn-primary" (click)="openUploadDialog()">
       <mat-icon>cloud_upload</mat-icon> Yeni Video Yükle
     </button>
   </div>
 
-  <!-- Arka planda yükleme göstergesi -->
-  <mat-card *ngIf="isBackgroundUploading" style="margin-bottom: 16px; padding: 12px 16px; border-left: 4px solid #1976d2; border-radius: 6px;">
-    <div style="display: flex; align-items: center; gap: 12px;">
-      <mat-icon style="color: #1976d2;">cloud_upload</mat-icon>
+  <!-- Arka planda yukleme gostergesi -->
+  <div class="card" *ngIf="isBackgroundUploading"
+       style="margin-bottom: var(--s4); border-left: 2px solid var(--accent);">
+    <div style="display: flex; align-items: center; gap: var(--s3);">
+      <mat-icon style="color: var(--accent);">cloud_upload</mat-icon>
       <div style="flex: 1;">
-        <div style="font-size: 13px; font-weight: 500; color: #333;">
-          Arka planda yükleniyor: {{ backgroundUploadName }}
+        <div style="font-weight: 600;">Arka planda yükleniyor: {{ backgroundUploadName }}</div>
+        <div style="font-size: var(--fs-sm); color: var(--text-dim);">
+          Bu sırada uygulamayı kullanmaya devam edebilirsiniz.
         </div>
-        <div style="font-size: 12px; color: gray;">Bu sırada uygulamayı kullanmaya devam edebilirsiniz.</div>
       </div>
     </div>
-    <mat-progress-bar mode="indeterminate" style="margin-top: 8px;"></mat-progress-bar>
-  </mat-card>
+    <mat-progress-bar mode="indeterminate" style="margin-top: var(--s2);"></mat-progress-bar>
+  </div>
 
-  <!-- Üst Filtreleme Çubuğu -->
-  <mat-card style="margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
-      <mat-form-field appearance="outline" style="flex: 1; min-width: 150px;">
-        <mat-label>ID'ye Göre Ara</mat-label>
-        <input matInput [(ngModel)]="topSearch.id" placeholder="ID Girin...">
-      </mat-form-field>
-      <mat-form-field appearance="outline" style="flex: 1; min-width: 150px;">
-        <mat-label>Video Adı</mat-label>
-        <input matInput [(ngModel)]="topSearch.inputFileName" placeholder="Dosya adı...">
-      </mat-form-field>
-      <mat-form-field appearance="outline" style="flex: 1; min-width: 150px;">
-        <mat-label>Uygulanan Şablon</mat-label>
-        <input matInput [(ngModel)]="topSearch.presetName" placeholder="Şablon ara...">
-      </mat-form-field>
-      <mat-form-field appearance="outline" style="flex: 1; min-width: 150px;">
-        <mat-label>Durum</mat-label>
-        <mat-select [(ngModel)]="topSearch.status">
-          <mat-option value="">Tümü</mat-option>
-          <mat-option value="COMPLETED">Tamamlandı</mat-option>
-          <mat-option value="PROCESSING">İşleniyor</mat-option>
-          <mat-option value="FAILED">Başarısız</mat-option>
-          <mat-option value="PENDING">Bekliyor</mat-option>
-        </mat-select>
-      </mat-form-field>
-
-      <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-        <button mat-raised-button color="primary" (click)="applyTopFilters()"><mat-icon>search</mat-icon> Filtrele</button>
-        <button mat-stroked-button color="warn" (click)="clearTopFilters()"><mat-icon>clear</mat-icon> Temizle</button>
-      </div>
+  <!-- Filtre cubugu: arama her zaman gorunur, durum secimi yaninda -->
+  <div class="filterbar">
+    <div class="search">
+      <mat-icon>search</mat-icon>
+      <input [(ngModel)]="topSearch.inputFileName" (ngModelChange)="applyTopFilters()"
+             placeholder="Video adı ara..." />
     </div>
-  </mat-card>
+
+    <button class="btn" [class.on]="showFilters" (click)="toggleFilters()">
+      <mat-icon>tune</mat-icon> Filtreler
+      <span class="count" *ngIf="activeFilters.length">{{ activeFilters.length }}</span>
+    </button>
+
+    <button class="btn" *ngIf="activeFilters.length" (click)="clearTopFilters()">
+      <mat-icon>close</mat-icon> Temizle
+    </button>
+  </div>
+
+  <div class="filter-panel" *ngIf="showFilters">
+    <div class="field">
+      <label>ID</label>
+      <input [(ngModel)]="topSearch.id" (ngModelChange)="applyTopFilters()" placeholder="Ara..." />
+    </div>
+    <div class="field">
+      <label>Uygulanan Şablon</label>
+      <input [(ngModel)]="topSearch.presetName" (ngModelChange)="applyTopFilters()" placeholder="Şablon ara..." />
+    </div>
+    <div class="field">
+      <label>Durum</label>
+      <select [(ngModel)]="topSearch.status" (ngModelChange)="applyTopFilters()">
+        <option value="">Tümü</option>
+        <option value="COMPLETED">Tamamlandı</option>
+        <option value="PROCESSING">İşleniyor</option>
+        <option value="FAILED">Başarısız</option>
+        <option value="PENDING">Bekliyor</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="chips" *ngIf="activeFilters.length">
+    <span class="chip" *ngFor="let f of activeFilters">
+      {{ f.label }}: {{ f.value }}
+      <button (click)="removeFilter(f.key)"><mat-icon>close</mat-icon></button>
+    </span>
+  </div>
+
+  <!-- Secim varken beliren toplu islem seridi -->
+  <div class="bulkbar" *ngIf="selectedRows.length">
+    <span class="n">{{ selectedRows.length }} satır seçili</span>
+    <span style="color: var(--text-dim);" *ngIf="selectedJobCount > selectedRows.length">
+      ({{ selectedJobCount }} iş)
+    </span>
+    <span class="sep"></span>
+    <button class="btn" (click)="bulkMeasure()"
+            [disabled]="isBulkBusy || selectedMeasurableCount === 0"
+            [matTooltip]="selectedMeasurableCount === 0
+              ? 'Seçilenlerde tamamlanmış çıktı yok'
+              : selectedMeasurableCount + ' çıktı ölçülecek'">
+      <mat-icon>insights</mat-icon> Kaliteyi Ölç
+    </button>
+    <button class="btn danger" (click)="bulkDelete()" [disabled]="isBulkBusy">
+      <mat-icon>delete</mat-icon> Sil
+    </button>
+    <button class="btn" (click)="clearSelection()" [disabled]="isBulkBusy">
+      <mat-icon>close</mat-icon> Seçimi bırak
+    </button>
+  </div>
 
   <!-- EKRAN BÖLME ALANI (Tablo + Klip Paneli) -->
   <div style="display: flex; gap: 20px; align-items: flex-start;">
 
     <!-- SOL TARAF: TABLO -->
-    <div [style.width]="showClipPanel ? '30%' : '100%'" style="transition: width 0.3s ease; overflow-x: auto;">
-      <table mat-table [dataSource]="dataSource" matSort class="mat-elevation-z8" style="width: 100%; border-bottom-left-radius: 0; border-bottom-right-radius: 0;" [trackBy]="trackByRow">
+    <div [style.width]="showClipPanel ? '30%' : '100%'" style="transition: width 0.3s ease;">
+      <div class="table-wrap"><div class="table-scroll">
+      <table mat-table [dataSource]="dataSource" matSort style="width: 100%;" [trackBy]="trackByRow">
+
+        <ng-container matColumnDef="select">
+          <th mat-header-cell *matHeaderCellDef style="width: 40px;">
+            <input type="checkbox" class="check"
+                   [checked]="allVisibleSelected"
+                   [indeterminate]="someVisibleSelected"
+                   (change)="toggleAll()"
+                   matTooltip="Görünen tüm satırları seç" />
+          </th>
+          <td mat-cell *matCellDef="let row">
+            <input type="checkbox" class="check"
+                   [checked]="isSelected(row)"
+                   (change)="toggleRow(row)"
+                   (click)="$event.stopPropagation()" />
+          </td>
+        </ng-container>
 
         <ng-container matColumnDef="id">
           <th mat-header-cell *matHeaderCellDef mat-sort-header> ID </th>
-          <td mat-cell *matCellDef="let row" style="color: #7f8c8d; font-size: 13px;"
+          <td mat-cell *matCellDef="let row" style="color: var(--text-muted); font-size: 13px;"
               [matTooltip]="row.isBatch ? 'Paket kimliği: ' + row.key : row.key">
             {{ row.key | slice:0:8 }}...
           </td>
@@ -81,11 +134,11 @@
           <td mat-cell *matCellDef="let row">
             <span *ngIf="row.isBatch"
                   [matTooltip]="'Paket kimliği: ' + row.key"
-                  style="background: #ede7f6; color: #5e35b1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
+                  style="background: var(--surface-3); color: var(--accent); padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
               <mat-icon style="font-size: 14px; width: 14px; height: 14px;">layers</mat-icon>
               {{ encodeSetName(row.primary) }} ({{ row.jobs.length }})
             </span>
-            <span *ngIf="!row.isBatch" style="color: gray; font-style: italic; font-size: 12px;">Tekli</span>
+            <span *ngIf="!row.isBatch" style="color: var(--text-dim); font-style: italic; font-size: 12px;">Tekli</span>
           </td>
         </ng-container>
 
@@ -100,124 +153,165 @@
                     [style.color]="presetChipFg(j)"
                     style="padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 5px;">
                 {{ presetQuality(j) }}
-                <!-- VMAF skoru: olculmusse kalitenin yanina iliskiyor -->
-                <b *ngIf="j.vmafScore != null"
-                   [style.color]="vmafColor(j.vmafScore)"
-                   style="background: #fff; border-radius: 3px; padding: 0 4px; font-size: 11px;">
-                  {{ j.vmafScore | number:'1.0-0' }}
-                </b>
               </span>
             </div>
-            <span *ngIf="!row.presetLabel" style="color: gray; font-style: italic;">Şablon Yok</span>
+            <span *ngIf="!row.presetLabel" style="color: var(--text-dim); font-style: italic;">Şablon Yok</span>
           </td>
         </ng-container>
 
         <ng-container matColumnDef="status">
           <th mat-header-cell *matHeaderCellDef mat-sort-header> Durum </th>
           <td mat-cell *matCellDef="let row">
-            <span *ngIf="row.status === 'COMPLETED'" style="color: green; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+            <span *ngIf="row.status === 'COMPLETED'" style="color: var(--success); font-weight: 600; display: flex; align-items: center; gap: 5px;">
               <mat-icon style="font-size: 18px;">check_circle</mat-icon> Tamamlandı
             </span>
-            <span *ngIf="row.status === 'FAILED'" style="color: red; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+            <span *ngIf="row.status === 'FAILED'" style="color: var(--danger); font-weight: 600; display: flex; align-items: center; gap: 5px;">
               <mat-icon style="font-size: 18px;">error</mat-icon> Başarısız
             </span>
-            <span *ngIf="row.status === 'PROCESSING'" style="color: orange; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+            <span *ngIf="row.status === 'PROCESSING'" style="color: var(--warning); font-weight: 600; display: flex; align-items: center; gap: 5px;">
               <mat-icon style="font-size: 18px;" class="spin">sync</mat-icon> İşleniyor
             </span>
-            <span *ngIf="row.status === 'PENDING'" style="color: gray; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+            <span *ngIf="row.status === 'PENDING'" style="color: var(--text-dim); font-weight: 600; display: flex; align-items: center; gap: 5px;">
               <mat-icon style="font-size: 18px;">hourglass_empty</mat-icon> Bekliyor
             </span>
-            <div *ngIf="row.jobs.length > 1" style="font-size: 11px; color: gray; margin-top: 2px;">
+            <div *ngIf="row.jobs.length > 1" style="font-size: var(--fs-xs); color: var(--text-dim); margin-top: 2px;">
               {{ row.completedCount }}/{{ row.jobs.length }} kalite hazır
             </div>
-            <div *ngIf="row.averageVmaf != null"
-                 [style.color]="vmafColor(row.averageVmaf)"
-                 [matTooltip]="vmafVerdict(row.averageVmaf)"
-                 style="font-size: 11px; margin-top: 2px; font-weight: 600;">
-              VMAF {{ row.averageVmaf | number:'1.0-1' }}
+
+            <!--
+              Ilerleme yalnizca is surerken anlamli. Tamamlanan ya da basarisiz
+              satirlarda cubuk hep %100 ya da sabit duruyordu ve 84 satirlik
+              listede bos yere bir sutun kapliyordu; artik durum yazisinin
+              altinda, sadece ISLENIYOR halinde cikiyor.
+            -->
+            <div *ngIf="row.status === 'PROCESSING'"
+                 style="display: flex; align-items: center; gap: var(--s2); margin-top: 5px; max-width: 200px;">
+              <mat-progress-bar mode="determinate" [value]="row.progress"
+                                style="flex: 1; height: 5px; border-radius: 3px;"></mat-progress-bar>
+              <span style="font-size: var(--fs-xs); color: var(--text-dim); font-variant-numeric: tabular-nums;">
+                %{{ row.progress }}
+              </span>
             </div>
           </td>
         </ng-container>
 
-        <ng-container matColumnDef="progress">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header> İlerleme </th>
-          <td mat-cell *matCellDef="let row" style="width: 250px;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <mat-progress-bar mode="determinate" [value]="row.progress" [color]="row.status === 'COMPLETED' ? 'primary' : (row.status === 'FAILED' ? 'warn' : 'accent')" style="flex: 1; height: 8px; border-radius: 4px;"></mat-progress-bar>
-              <span style="font-weight: bold; font-size: 12px; width: 40px; text-align: right;">%{{ row.progress }}</span>
+        <!--
+          VMAF kendi sutununda. Once iki yerde birden geciyordu: sablon
+          rozetinin icinde kucuk bir rakam ve durum yazisinin altinda. Ikisi de
+          dar alanda sikisiyor, "Tamamlandi" ile ayni hucrede olunca da farkli
+          iki bilgi tek blok gibi okunuyordu.
+        -->
+        <ng-container matColumnDef="vmaf">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header
+              matTooltip="Kaynakla karşılaştırmalı kalite skoru (0-100)"> VMAF </th>
+          <td mat-cell *matCellDef="let row">
+            <div *ngIf="row.averageVmaf != null"
+                 [style.color]="vmafColor(row.averageVmaf)"
+                 [matTooltip]="vmafVerdict(row.averageVmaf)"
+                 style="font-weight: 600; font-size: var(--fs-md); font-variant-numeric: tabular-nums;">
+              {{ row.averageVmaf | number:'1.1-1' }}
             </div>
+            <!-- Pakette skor ortalamadir; kacinin olculdugu yaziliyor -->
+            <div *ngIf="row.averageVmaf != null && row.jobs.length > 1"
+                 style="font-size: var(--fs-xs); color: var(--text-muted);">
+              {{ row.measuredCount }}/{{ row.jobs.length }} ölçüldü · ort.
+            </div>
+            <span *ngIf="row.averageVmaf == null" style="color: var(--text-muted);">—</span>
           </td>
         </ng-container>
 
         <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef style="text-align: right;"> İşlemler </th>
+          <th mat-header-cell *matHeaderCellDef style="text-align: right; width: 56px;"></th>
           <td mat-cell *matCellDef="let row" style="text-align: right;">
-            <button *ngIf="row.status === 'COMPLETED'" mat-icon-button style="color: #ff9800;" (click)="openClipPanel(row.primary)" matTooltip="Videodan Klip Kes">
-              <mat-icon>content_cut</mat-icon>
+            <!--
+              Eskiden burada bes ayri ikon vardi; 84 satirda gorsel gurultu
+              yapiyor ve sutunu genisletiyordu. Artik tek dugme, eylemler menude.
+              Sik kullanilan toplu islemler ise ustteki seritte.
+            -->
+            <button mat-icon-button class="rowmenu" [matMenuTriggerFor]="rowMenu"
+                    matTooltip="İşlemler" (click)="$event.stopPropagation()">
+              <mat-icon>more_vert</mat-icon>
             </button>
 
-            <!-- Tekli iste dogrudan oynatici, pakette kalite secimli tek oynatici -->
-            <button *ngIf="row.status === 'COMPLETED' && !row.isBatch" mat-icon-button color="primary" (click)="playVideo(row.primary)" matTooltip="İzle">
-              <mat-icon>play_circle</mat-icon>
-            </button>
-            <button *ngIf="row.status === 'COMPLETED' && row.isBatch" mat-icon-button color="primary" (click)="openSmilPlayer(row.primary)" matTooltip="İzle (kalite + altyazı seçimli)">
-              <mat-icon>play_circle</mat-icon>
-            </button>
-            <button *ngIf="row.status === 'COMPLETED' && row.isBatch" mat-icon-button style="color: #607d8b;" (click)="openSmil(row.primary)" matTooltip="SMIL Manifestinin Kendisini Aç (XML)">
-              <mat-icon>description</mat-icon>
-            </button>
+            <mat-menu #rowMenu="matMenu">
+              <button mat-menu-item *ngIf="row.status === 'COMPLETED' && !row.isBatch"
+                      (click)="playVideo(row.primary)">
+                <mat-icon>play_circle</mat-icon> <span>İzle</span>
+              </button>
+              <button mat-menu-item *ngIf="row.status === 'COMPLETED' && row.isBatch"
+                      (click)="openSmilPlayer(row.primary)">
+                <mat-icon>play_circle</mat-icon> <span>İzle (kalite + altyazı seçimli)</span>
+              </button>
 
-            <!-- Pakette hangi kalitenin inecegi menuden secilir -->
-            <button *ngIf="row.status === 'COMPLETED' && !row.isBatch" mat-icon-button style="color: #4caf50;" (click)="downloadVideo(row.primary)" matTooltip="Bilgisayara İndir">
-              <mat-icon>download</mat-icon>
-            </button>
-            <button *ngIf="row.status === 'COMPLETED' && row.isBatch" mat-icon-button style="color: #4caf50;" [matMenuTriggerFor]="downloadMenu" matTooltip="Bilgisayara İndir (kalite seç)">
-              <mat-icon>download</mat-icon>
-            </button>
-            <mat-menu #downloadMenu="matMenu">
-              <button mat-menu-item *ngFor="let j of row.jobs" [disabled]="j.status !== 'COMPLETED'" (click)="downloadVideo(j)">
-                {{ j.preset?.name }}
+              <button mat-menu-item *ngIf="row.status === 'COMPLETED' && !row.isBatch"
+                      (click)="downloadVideo(row.primary)">
+                <mat-icon>download</mat-icon> <span>Bilgisayara indir</span>
+              </button>
+              <button mat-menu-item *ngIf="row.status === 'COMPLETED' && row.isBatch"
+                      [matMenuTriggerFor]="downloadMenu">
+                <mat-icon>download</mat-icon> <span>Bilgisayara indir</span>
+              </button>
+              <mat-menu #downloadMenu="matMenu">
+                <button mat-menu-item *ngFor="let j of row.jobs"
+                        [disabled]="j.status !== 'COMPLETED'" (click)="downloadVideo(j)">
+                  {{ j.preset?.name }}
+                </button>
+              </mat-menu>
+
+              <button mat-menu-item *ngIf="row.status === 'COMPLETED'"
+                      (click)="measureQuality(row)" [disabled]="isMeasuring(row)">
+                <mat-icon>insights</mat-icon>
+                <span>{{ row.measuredCount > 0 ? 'Kaliteyi yeniden ölç' : 'Kaliteyi ölç (VMAF)' }}</span>
+              </button>
+
+              <button mat-menu-item *ngIf="row.status === 'COMPLETED'"
+                      (click)="openClipPanel(row.primary)">
+                <mat-icon>vertical_split</mat-icon> <span>Klip panelini aç</span>
+              </button>
+
+              <button mat-menu-item *ngIf="row.status === 'COMPLETED' && row.isBatch"
+                      (click)="openSmil(row.primary)">
+                <mat-icon>description</mat-icon> <span>SMIL manifestini aç (XML)</span>
+              </button>
+
+              <button mat-menu-item (click)="deleteRow(row)" style="color: var(--danger);">
+                <mat-icon style="color: var(--danger);">delete</mat-icon>
+                <span>{{ row.jobs.length > 1 ? 'Paketin tüm işlerini sil' : 'Sil' }}</span>
               </button>
             </mat-menu>
-
-            <button *ngIf="row.status === 'COMPLETED'"
-                    mat-icon-button
-                    style="color: #00838f;"
-                    (click)="measureQuality(row)"
-                    [disabled]="isMeasuring(row)"
-                    [matTooltip]="row.measuredCount > 0
-                      ? 'Kaliteyi Yeniden Ölç (VMAF)'
-                      : 'Kaliteyi Ölç (VMAF) — kaynakla karşılaştırır'">
-              <mat-icon>insights</mat-icon>
-            </button>
-
-            <button mat-icon-button color="warn" (click)="deleteRow(row)" [matTooltip]="row.jobs.length > 1 ? 'Paketin Tüm İşlerini Sil' : 'Görevi İptal Et / Sil'">
-              <mat-icon>delete</mat-icon>
-            </button>
           </td>
         </ng-container>
 
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
       </table>
-      <mat-paginator [pageSizeOptions]="[10, 20, 30]" [pageSize]="10" showFirstLastButtons class="mat-elevation-z8" style="border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;"></mat-paginator>
+      </div>
+
+      <div class="empty" *ngIf="dataSource.filteredData.length === 0">
+        <mat-icon>list_alt</mat-icon>
+        <p *ngIf="dataSource.data.length === 0">Henüz dönüştürme işi yok.</p>
+        <p *ngIf="dataSource.data.length > 0">Bu filtrelerle eşleşen iş yok.</p>
+      </div>
+
+      <mat-paginator [pageSizeOptions]="[10, 20, 30]" [pageSize]="10" showFirstLastButtons></mat-paginator>
+      </div>
     </div>
 
     <!-- SAĞ TARAF: KLİP ALMA PANELİ (İKİ OYNATICILI) -->
     <mat-card *ngIf="showClipPanel" style="width: 70%; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 8px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
-        <h2 style="margin: 0; color: #ff9800; display: flex; align-items: center; font-size: 18px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px;">
+        <h2 style="margin: 0; color: var(--warning); display: flex; align-items: center; font-size: 18px;">
           <mat-icon style="margin-right: 8px;">content_cut</mat-icon> Videodan Klip Al
         </h2>
         <button mat-icon-button (click)="closeClipPanel()" matTooltip="Kapat"><mat-icon>close</mat-icon></button>
       </div>
 
-      <p style="font-size: 12px; color: gray; margin: 0 0 10px 0;">{{ clipVideoName }}</p>
+      <p style="font-size: 12px; color: var(--text-dim); margin: 0 0 10px 0;">{{ clipVideoName }}</p>
 
       <!-- İkiye bölünmüş önizleme -->
       <div style="display: flex; gap: 10px; margin-bottom: 10px;">
         <div style="flex: 1;">
-          <div style="font-size: 12px; font-weight: 600; color: #388e3c; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+          <div style="font-size: 12px; font-weight: 600; color: var(--success); margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
             <mat-icon style="font-size: 16px; width: 16px; height: 16px;">first_page</mat-icon> BAŞLANGIÇ
           </div>
           <div style="background: #000; border-radius: 4px; overflow: hidden;">
@@ -227,7 +321,7 @@
         </div>
 
         <div style="flex: 1;">
-          <div style="font-size: 12px; font-weight: 600; color: #d32f2f; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+          <div style="font-size: 12px; font-weight: 600; color: var(--danger); margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
             <mat-icon style="font-size: 16px; width: 16px; height: 16px;">last_page</mat-icon> BİTİŞ
           </div>
           <div style="background: #000; border-radius: 4px; overflow: hidden;">
@@ -237,7 +331,7 @@
         </div>
       </div>
 
-      <p style="font-size: 13px; color: gray; margin-bottom: 5px;">Soldaki tutamak başlangıç videosunu, sağdaki tutamak bitiş videosunu hareket ettirir.</p>
+      <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 5px;">Soldaki tutamak başlangıç videosunu, sağdaki tutamak bitiş videosunu hareket ettirir.</p>
 
       <div style="margin: 10px 0; padding: 0 10px;">
         <mat-slider class="clip-slider" style="width: 100%; margin: 0;" min="0" [max]="videoDuration" step="1">
@@ -247,10 +341,10 @@
 
         <div class="clip-time-labels">
           <span class="clip-time-chip">
-            <span class="dot" style="background: #388e3c;"></span>{{ clipStartStr }}
+            <span class="dot" style="background: var(--success);"></span>{{ clipStartStr }}
           </span>
           <span class="clip-time-chip">
-            <span class="dot" style="background: #d32f2f;"></span>{{ clipEndStr }}
+            <span class="dot" style="background: var(--danger);"></span>{{ clipEndStr }}
           </span>
         </div>
       </div>
@@ -267,14 +361,14 @@
       </div>
 
       <mat-progress-bar *ngIf="isVideoClipping" mode="indeterminate" color="accent"></mat-progress-bar>
-      <p *ngIf="isVideoClipping" style="color: #ff9800; font-size: 12px; text-align: center; margin: 5px 0 0 0;">Klip kesiliyor, lütfen bekleyin...</p>
+      <p *ngIf="isVideoClipping" style="color: var(--warning); font-size: 12px; text-align: center; margin: 5px 0 0 0;">Klip kesiliyor, lütfen bekleyin...</p>
 
       <div style="text-align: right; margin-top: 10px;">
         <button mat-button (click)="closeClipPanel()" [disabled]="isVideoClipping" style="margin-right: 10px;">İptal</button>
         <button mat-raised-button
                 (click)="takeVideoClip()"
                 [disabled]="isVideoClipping"
-                [style.background-color]="isVideoClipping ? '#e0e0e0' : '#ff9800'"
+                [style.background-color]="isVideoClipping ? 'var(--border)' : 'var(--warning)'"
                 [style.color]="isVideoClipping ? 'rgba(0, 0, 0, 0.38)' : 'white'">
           Klibi Oluştur
         </button>
@@ -285,26 +379,26 @@
 
 <!-- Upload Modalı: Başlat'a basınca hemen kapanır, yükleme arka planda sürer -->
 <ng-template #uploadDialog>
-  <h2 mat-dialog-title><mat-icon style="vertical-align: middle; color: #1976d2; margin-right: 5px;">cloud_upload</mat-icon> Yeni Video İşlemi Başlat</h2>
+  <h2 mat-dialog-title><mat-icon style="vertical-align: middle; color: var(--accent); margin-right: 5px;">cloud_upload</mat-icon> Yeni Video İşlemi Başlat</h2>
   <mat-dialog-content style="display: flex; flex-direction: column; gap: 15px; padding-top: 10px;">
     <div>
-      <label style="font-weight: 500; font-size: 13px; margin-bottom: 5px; display: block; color: #333;">1. Ana Video Dosyası Seçin <span style="color: red;">*</span></label>
-      <input type="file" (change)="onFileSelected($event)" accept="video/mp4,video/mkv,video/avi,video/quicktime,.mov" style="display: block; width: 100%; border: 1px solid #ccc; padding: 8px; border-radius: 4px; font-size: 12px;" />
+      <label style="font-weight: 500; font-size: 13px; margin-bottom: 5px; display: block; color: var(--text);">1. Ana Video Dosyası Seçin <span style="color: red;">*</span></label>
+      <input type="file" (change)="onFileSelected($event)" accept="video/mp4,video/mkv,video/avi,video/quicktime,.mov" style="display: block; width: 100%; border: 1px solid var(--border); padding: 8px; border-radius: 4px; font-size: 12px;" />
     </div>
     <div>
-      <label style="font-weight: 500; font-size: 13px; margin-bottom: 5px; display: block; color: #555;">2. Alt Yazı Dosyası (Opsiyonel)</label>
-      <input type="file" (change)="onSubtitleSelected($event)" accept=".srt,.vtt" style="display: block; width: 100%; border: 1px dashed #999; padding: 8px; border-radius: 4px; font-size: 12px; background-color: #fafafa;" />
+      <label style="font-weight: 500; font-size: 13px; margin-bottom: 5px; display: block; color: var(--text-dim);">2. Alt Yazı Dosyası (Opsiyonel)</label>
+      <input type="file" (change)="onSubtitleSelected($event)" accept=".srt,.vtt" style="display: block; width: 100%; border: 1px dashed var(--text-muted); padding: 8px; border-radius: 4px; font-size: 12px; background-color: var(--surface-2);" />
     </div>
-    <div *ngIf="selectedSubtitle" style="background: #f5f7fa; border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
-      <label style="font-weight: 500; font-size: 13px; display: block; color: #333;">Altyazı Nasıl Uygulansın?</label>
+    <div *ngIf="selectedSubtitle" style="background: var(--surface-2); border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+      <label style="font-weight: 500; font-size: 13px; display: block; color: var(--text);">Altyazı Nasıl Uygulansın?</label>
       <mat-radio-group [(ngModel)]="subtitleMode" style="display: flex; flex-direction: column; gap: 6px;">
         <mat-radio-button value="SIDECAR">
           <span style="font-size: 13px;">Seçilebilir altyazı (ayrı dosya)</span>
-          <div style="font-size: 11px; color: gray; margin-left: 2px;">Oynatıcıdan açılıp kapatılabilir, tüm kaliteler aynı dosyayı paylaşır.</div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-left: 2px;">Oynatıcıdan açılıp kapatılabilir, tüm kaliteler aynı dosyayı paylaşır.</div>
         </mat-radio-button>
         <mat-radio-button value="BURN">
           <span style="font-size: 13px;">Görüntüye yak</span>
-          <div style="font-size: 11px; color: gray; margin-left: 2px;">Kapatılamaz, her kaliteye ayrı ayrı gömülür.</div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-left: 2px;">Kapatılamaz, her kaliteye ayrı ayrı gömülür.</div>
         </mat-radio-button>
       </mat-radio-group>
 
@@ -317,14 +411,14 @@
     </div>
 
     <div>
-      <label style="font-weight: 500; font-size: 13px; margin-bottom: 5px; display: block; color: #555;">3. Dublaj / Ses Dosyası (Opsiyonel)</label>
-      <input type="file" (change)="onDubbingSelected($event)" accept="audio/mp3,audio/wav,audio/aac,audio/m4a" style="display: block; width: 100%; border: 1px dashed #999; padding: 8px; border-radius: 4px; font-size: 12px; background-color: #fafafa;" />
+      <label style="font-weight: 500; font-size: 13px; margin-bottom: 5px; display: block; color: var(--text-dim);">3. Dublaj / Ses Dosyası (Opsiyonel)</label>
+      <input type="file" (change)="onDubbingSelected($event)" accept="audio/mp3,audio/wav,audio/aac,audio/m4a" style="display: block; width: 100%; border: 1px dashed var(--text-muted); padding: 8px; border-radius: 4px; font-size: 12px; background-color: var(--surface-2);" />
     </div>
     <div>
-      <label style="font-weight: 500; font-size: 13px; margin-bottom: 5px; display: block; color: #333;">4. Çıktı Modu <span style="color: red;">*</span></label>
+      <label style="font-weight: 500; font-size: 13px; margin-bottom: 5px; display: block; color: var(--text);">4. Çıktı Modu <span style="color: red;">*</span></label>
       <mat-button-toggle-group [(ngModel)]="jobMode" (ngModelChange)="onJobModeChange()" style="width: 100%;">
         <mat-button-toggle value="single" style="flex: 1;">
-          <mat-icon style="margin-right: 4px; font-size: 18px; width: 18px; height: 18px;">tune</mat-icon> Tek Şablon
+          <mat-icon style="margin-right: 4px; font-size: 18px; width: 18px; height: 18px;">style</mat-icon> Tek Şablon
         </mat-button-toggle>
         <mat-button-toggle value="set" style="flex: 1;">
           <mat-icon style="margin-right: 4px; font-size: 18px; width: 18px; height: 18px;">layers</mat-icon> Paket
@@ -347,10 +441,10 @@
       <mat-hint *ngIf="encodeSets.length === 0">Henüz paket yok — "Paketler" sekmesinden oluşturabilirsiniz.</mat-hint>
     </mat-form-field>
 
-    <p *ngIf="jobMode === 'set'" style="font-size: 12px; color: #5e35b1; margin: 0;">
+    <p *ngIf="jobMode === 'set'" style="font-size: 12px; color: var(--accent); margin: 0;">
       Paketteki her şablon için ayrı bir iş açılır, çıktılar tek klasörde toplanır.
     </p>
-    <p style="font-size: 12px; color: gray; margin: 0;">Başlat'a bastığınızda yükleme arka planda devam eder, beklemenize gerek yoktur.</p>
+    <p style="font-size: 12px; color: var(--text-dim); margin: 0;">Başlat'a bastığınızda yükleme arka planda devam eder, beklemenize gerek yoktur.</p>
   </mat-dialog-content>
   <mat-dialog-actions align="end">
     <button mat-button mat-dialog-close>İptal</button>
@@ -359,16 +453,16 @@
 </ng-template>
 
 <ng-template #smilDialog>
-  <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background-color: #f5f7fa; border-bottom: 1px solid #e0e0e0;">
-    <h3 style="margin: 0; font-weight: 500; font-size: 16px; color: #333;">
-      <mat-icon style="vertical-align: middle; margin-right: 5px; color: #5e35b1;">hd</mat-icon>
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background-color: var(--surface-2); border-bottom: 1px solid var(--border);">
+    <h3 style="margin: 0; font-weight: 500; font-size: 16px; color: var(--text);">
+      <mat-icon style="vertical-align: middle; margin-right: 5px; color: var(--accent);">hd</mat-icon>
       {{ smilBatchName }}
     </h3>
     <button mat-icon-button mat-dialog-close matTooltip="Kapat"><mat-icon>close</mat-icon></button>
   </div>
 
   <mat-dialog-content style="padding: 0; background: #000; overflow: hidden;">
-    <div *ngIf="smilError" style="color: #ff8a80; background: #1a1a1a; padding: 20px; text-align: center; font-size: 14px;">
+    <div *ngIf="smilError" style="color: var(--danger); background: var(--text); padding: 20px; text-align: center; font-size: 14px;">
       {{ smilError }}
     </div>
     <video *ngIf="smilQualities.length > 0"
@@ -385,7 +479,7 @@
     </video>
   </mat-dialog-content>
 
-  <mat-dialog-actions style="background: #f5f7fa; border-top: 1px solid #e0e0e0; padding: 10px 20px; display: flex; gap: 10px; justify-content: flex-end;">
+  <mat-dialog-actions style="background: var(--surface-2); border-top: 1px solid var(--border); padding: 10px 20px; display: flex; gap: 10px; justify-content: flex-end;">
     <button mat-stroked-button [matMenuTriggerFor]="smilQualityMenu" [disabled]="smilQualities.length === 0">
       <mat-icon style="margin-right: 4px;">settings</mat-icon> Kalite: {{ smilQualityLabel }}
     </button>
@@ -394,7 +488,7 @@
         <button mat-menu-item (click)="selectSmilQuality(i)">
           <mat-icon *ngIf="smilCurrentQuality === i">check</mat-icon>
           <span [style.margin-left]="smilCurrentQuality === i ? '0' : '24px'">
-            {{ q.label }} <span style="color: gray; font-size: 12px;">({{ (q.bitrate / 1000) | number:'1.0-0' }} kbps)</span>
+            {{ q.label }} <span style="color: var(--text-dim); font-size: 12px;">({{ (q.bitrate / 1000) | number:'1.0-0' }} kbps)</span>
           </span>
         </button>
       }
@@ -418,8 +512,8 @@
 </ng-template>
 
 <ng-template #videoDialog>
-  <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background-color: #f5f7fa; border-bottom: 1px solid #e0e0e0;">
-    <h3 style="margin: 0; font-weight: 500; font-size: 16px; color: #333;"><mat-icon style="vertical-align: middle; margin-right: 5px; color: #1976d2;">movie</mat-icon> {{ currentVideoName }}</h3>
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background-color: var(--surface-2); border-bottom: 1px solid var(--border);">
+    <h3 style="margin: 0; font-weight: 500; font-size: 16px; color: var(--text);"><mat-icon style="vertical-align: middle; margin-right: 5px; color: var(--accent);">movie</mat-icon> {{ currentVideoName }}</h3>
     <button mat-icon-button mat-dialog-close matTooltip="Kapat"><mat-icon>close</mat-icon></button>
   </div>
   <mat-dialog-content style="padding: 0; background: #000; display: flex; justify-content: center; align-items: center; overflow: hidden; min-height: 400px;">

@@ -26,7 +26,8 @@ public class EncodingPresetServiceImpl implements EncodingPresetService {
                 entity.getId(), entity.getName(), entity.getDescription(),
                 entity.getFormat(), entity.getVideoCodec(), entity.getAudioCodec(),
                 entity.getWidth(), entity.getHeight(), entity.getVideoBitrate(),
-                entity.getAudioBitrate(), entity.getFrameRate(), entity.getIsActive()
+                entity.getAudioBitrate(), entity.getFrameRate(), entity.getIsActive(),
+                Boolean.TRUE.equals(entity.getCalibration())
         );
     }
 
@@ -98,10 +99,10 @@ public class EncodingPresetServiceImpl implements EncodingPresetService {
 
     @Override
     public List<PresetResponse> getAllPresets() {
-        // Kalibrasyon sablonlari listeyi kirletmesin; onlar bir taramaya ait
-        // gecici kayitlar, kullanicinin secebilecegi sablonlar degil.
+        // Kalibrasyon sablonlari da donuyor. Onceden filtreleniyorlardi ve bu
+        // yaniltiyordu: arayuzde 14 sablon gorunurken veritabaninda 164 kayit
+        // vardi. Artik hepsi geliyor, ayrimi calibration bayragiyla arayuz yapiyor.
         return repository.findAll().stream()
-                .filter(p -> !Boolean.TRUE.equals(p.getCalibration()))
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }

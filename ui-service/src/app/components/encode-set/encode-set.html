@@ -1,40 +1,56 @@
-<div style="margin: 20px;">
+<div class="page">
 
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <div matTooltip="Kayıtlı Paketler" style="display: flex; align-items: center; justify-content: center; background: #eef2f6; padding: 10px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-      <mat-icon style="font-size: 32px; width: 32px; height: 32px; color: #1976d2;">layers</mat-icon>
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Paketler</h1>
+      <p class="page-sub">{{ dataSource.data.length }} paket kayıtlı</p>
     </div>
-    <button mat-raised-button color="primary" (click)="addNewSet()">
-      <mat-icon>add</mat-icon> Yeni Paket Oluştur
+    <button class="btn-primary" (click)="addNewSet()">
+      <mat-icon>add</mat-icon> Yeni Paket
     </button>
   </div>
 
-  <mat-card style="margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); background-color: #f8f9fa;">
-    <mat-card-content style="padding: 0;">
-      <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 140px; font-size: 13px;">
-          <mat-label>Paket Adı</mat-label>
-          <input matInput [(ngModel)]="search.name" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 140px; font-size: 13px;">
-          <mat-label>İçindeki Şablon</mat-label>
-          <input matInput [(ngModel)]="search.preset" placeholder="Örn: 720p" />
-        </mat-form-field>
-      </div>
+  <div class="filterbar">
+    <div class="search">
+      <mat-icon>search</mat-icon>
+      <input [(ngModel)]="search.name" (ngModelChange)="applyFilters()" placeholder="Paket adı ara..." />
+    </div>
+    <div class="search">
+      <mat-icon>layers</mat-icon>
+      <input [(ngModel)]="search.preset" (ngModelChange)="applyFilters()" placeholder="İçindeki şablon..." />
+    </div>
+    <button class="btn" *ngIf="search.name || search.preset" (click)="clearFilters()">
+      <mat-icon>close</mat-icon> Temizle
+    </button>
+  </div>
 
-      <div style="display: flex; gap: 10px; margin-top: 15px;">
-        <button mat-stroked-button (click)="applyFilters()" style="border-radius: 20px; color: #1976d2; border-color: #d0d0d0; padding: 0 16px; background-color: #fff;">
-          <mat-icon style="margin-right: 4px; font-size: 18px; width: 18px; height: 18px;">search</mat-icon> Filtrele
-        </button>
-        <button mat-stroked-button (click)="clearFilters()" style="border-radius: 20px; color: #1976d2; border-color: #d0d0d0; padding: 0 16px; background-color: #fff;">
-          <mat-icon style="margin-right: 4px; font-size: 18px; width: 18px; height: 18px;">close</mat-icon> Temizle
-        </button>
-      </div>
-    </mat-card-content>
-  </mat-card>
+  <div class="bulkbar" *ngIf="selectedCount">
+    <span class="n">{{ selectedCount }} paket seçili</span>
+    <span class="sep"></span>
+    <button class="btn danger" (click)="bulkDelete()" [disabled]="isBulkBusy">
+      <mat-icon>delete</mat-icon> Sil
+    </button>
+    <button class="btn" (click)="clearSelection()" [disabled]="isBulkBusy">
+      <mat-icon>close</mat-icon> Seçimi bırak
+    </button>
+  </div>
 
-  <div style="overflow-x: auto;">
-    <table mat-table [dataSource]="dataSource" matSort class="mat-elevation-z8" style="width: 100%; min-width: 900px;">
+  <div class="table-wrap">
+    <div class="table-scroll">
+    <table mat-table [dataSource]="dataSource" matSort style="width: 100%; min-width: 900px;">
+
+      <ng-container matColumnDef="select">
+        <th mat-header-cell *matHeaderCellDef style="width: 40px;">
+          <input type="checkbox" class="check"
+                 [checked]="allVisibleSelected" [indeterminate]="someVisibleSelected"
+                 (change)="toggleAll()" matTooltip="Görünen tüm satırları seç" />
+        </th>
+        <td mat-cell *matCellDef="let row">
+          <input type="checkbox" class="check"
+                 [checked]="isSelected(row)" (change)="toggleRow(row)"
+                 (click)="$event.stopPropagation()" />
+        </td>
+      </ng-container>
 
       <ng-container matColumnDef="name">
         <th mat-header-cell *matHeaderCellDef mat-sort-header> Paket Adı </th>
@@ -43,7 +59,7 @@
 
       <ng-container matColumnDef="description">
         <th mat-header-cell *matHeaderCellDef> Açıklama </th>
-        <td mat-cell *matCellDef="let element" style="color: #7f8c8d;"> {{ element.description || '—' }} </td>
+        <td mat-cell *matCellDef="let element" style="color: var(--text-muted);"> {{ element.description || '—' }} </td>
       </ng-container>
 
       <ng-container matColumnDef="presetCount">
@@ -65,17 +81,34 @@
       </ng-container>
 
       <ng-container matColumnDef="actions">
-        <th mat-header-cell *matHeaderCellDef style="text-align: right;"> İşlemler </th>
+        <th mat-header-cell *matHeaderCellDef style="text-align: right; width: 56px;"></th>
         <td mat-cell *matCellDef="let element" style="text-align: right;">
-          <button mat-icon-button color="primary" (click)="editSet(element)" matTooltip="Düzenle"><mat-icon>edit</mat-icon></button>
-          <button mat-icon-button color="warn" (click)="deleteSet(element.id)" matTooltip="Sil"><mat-icon>delete</mat-icon></button>
+          <button mat-icon-button class="rowmenu" [matMenuTriggerFor]="rowMenu" matTooltip="İşlemler">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #rowMenu="matMenu">
+            <button mat-menu-item (click)="editSet(element)">
+              <mat-icon>edit</mat-icon> <span>Düzenle</span>
+            </button>
+            <button mat-menu-item (click)="deleteSet(element.id)" style="color: var(--danger);">
+              <mat-icon style="color: var(--danger);">delete</mat-icon> <span>Sil</span>
+            </button>
+          </mat-menu>
         </td>
       </ng-container>
 
       <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
       <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
     </table>
-    <mat-paginator [pageSizeOptions]="[10, 20, 30]" showFirstLastButtons class="mat-elevation-z8"></mat-paginator>
+    </div>
+
+    <div class="empty" *ngIf="dataSource.filteredData.length === 0">
+      <mat-icon>layers</mat-icon>
+      <p *ngIf="dataSource.data.length === 0">Henüz paket oluşturulmamış.</p>
+      <p *ngIf="dataSource.data.length > 0">Bu filtrelerle eşleşen paket yok.</p>
+    </div>
+
+    <mat-paginator [pageSizeOptions]="[10, 20, 30]" showFirstLastButtons></mat-paginator>
   </div>
 </div>
 

@@ -1,240 +1,188 @@
-<div style="margin: 20px;">
+<div class="page">
 
-  <!-- Başlık -->
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <div matTooltip="Kalite Analizi" style="display: flex; align-items: center; justify-content: center; background: #e0f2f1; padding: 10px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-      <mat-icon style="font-size: 32px; width: 32px; height: 32px; color: #00838f;">insights</mat-icon>
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Kalite Analizi</h1>
+      <p class="page-sub">{{ allPoints.length }} VMAF ölçümü</p>
     </div>
-    <div style="display: flex; gap: 10px;">
-      <button mat-stroked-button (click)="load()" style="border-radius: 20px;">
-        <mat-icon style="margin-right: 4px;">refresh</mat-icon> Yenile
-      </button>
-      <button mat-raised-button color="primary" (click)="toggleSweepForm()">
-        <mat-icon style="margin-right: 4px;">science</mat-icon>
-        {{ showSweepForm ? 'Formu Kapat' : 'Yeni Tarama' }}
-      </button>
-    </div>
+    <button class="btn" (click)="load()">
+      <mat-icon>refresh</mat-icon> Yenile
+    </button>
   </div>
 
-  <!-- Kalibrasyon tarama formu -->
-  <mat-card *ngIf="showSweepForm" style="margin-bottom: 20px; padding: 20px; border-radius: 8px; border-left: 4px solid #1976d2;">
-    <h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 500;">Kalibrasyon Taraması</h3>
-    <p style="margin: 0 0 16px 0; font-size: 12px; color: gray;">
-      Aynı videoyu aynı çözünürlükte farklı bitrate'lerle encode edip her birinin kalitesini ölçer.
-      Çıkan eğri, bitrate artırmanın nerede anlamsızlaştığını gösterir.
-    </p>
-
-    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 2; min-width: 260px;">
-        <mat-label>Kaynak Video</mat-label>
-        <mat-select [(ngModel)]="sweepForm.videoId">
-          <mat-option *ngFor="let v of sourceVideos" [value]="v.id">
-            {{ v.originalFileName }}
-            <span *ngIf="v.width"> ({{ v.width }}x{{ v.height }})</span>
-          </mat-option>
-        </mat-select>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 180px;">
-        <mat-label>Çözünürlük</mat-label>
-        <mat-select [(ngModel)]="sweepForm.resolution">
-          <mat-option *ngFor="let r of resolutionOptions" [value]="r.value">{{ r.label }}</mat-option>
-        </mat-select>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" style="flex: 1; min-width: 150px;">
-        <mat-label>Kare Hızı (boş = kaynak)</mat-label>
-        <input matInput [(ngModel)]="sweepForm.frameRate" placeholder="boş bırakın" />
-      </mat-form-field>
-    </div>
-
-    <mat-form-field appearance="outline" subscriptSizing="dynamic" style="width: 100%; margin-top: 15px;">
-      <mat-label>Bitrate listesi (kbps, virgülle)</mat-label>
-      <input matInput [(ngModel)]="sweepForm.bitrates" placeholder="400, 600, 800, 1200, 1800" />
-      <mat-hint>{{ parsedBitrateCount }} nokta ölçülecek — her biri bir encode + bir ölçüm demek.</mat-hint>
-    </mat-form-field>
-
-    <div style="background: #fff8e1; border-radius: 6px; padding: 10px 12px; margin-top: 16px; font-size: 12px; color: #795548; display: flex; gap: 8px; align-items: flex-start;">
-      <mat-icon style="font-size: 18px; width: 18px; height: 18px; color: #f9a825;">lightbulb</mat-icon>
-      <span>
-        Kare hızını boş bırakın. Kaynağın hızını değiştirmek kare atlamaya yol açıyor;
-        ölçümlerimizde aynı bitrate'te 13.5 puana kadar kayıp gösterdi.
-      </span>
-    </div>
-
-    <p *ngIf="sweepMessage" style="margin: 14px 0 0 0; font-size: 13px; color: #1565c0;">{{ sweepMessage }}</p>
-
-    <div style="text-align: right; margin-top: 16px;">
-      <button mat-button (click)="toggleSweepForm()" [disabled]="isStartingSweep" style="margin-right: 10px;">Kapat</button>
-      <button mat-raised-button color="primary" (click)="startSweep()" [disabled]="isStartingSweep || parsedBitrateCount === 0">
-        {{ isStartingSweep ? 'Başlatılıyor...' : 'Taramayı Başlat' }}
-      </button>
-    </div>
-  </mat-card>
-
-  <!-- Video seçici -->
-  <mat-card style="margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); background-color: #f8f9fa;">
+  <!-- Video seçici: iki grafik de aynı kaynağı çiziyor. Ölçüm yokken
+       gizleniyor, aksi halde bos bir secici duruyor. -->
+  <mat-card *ngIf="!isLoading && videos.length > 0" class="card" style="margin-bottom: var(--s4);">
     <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
       <mat-form-field appearance="outline" subscriptSizing="dynamic" style="min-width: 320px;">
         <mat-label>Kaynak Video</mat-label>
         <mat-select [(ngModel)]="selectedVideoKey" (ngModelChange)="onVideoChange()">
           <mat-option *ngFor="let v of videos" [value]="v.id">
-            {{ v.name }} ({{ v.count }} ölçüm)
+            {{ v.name }}<span *ngIf="v.detail"> · {{ v.detail }}</span>
+            ({{ v.count }} ölçüm<span *ngIf="v.uploads > 1">, {{ v.uploads }} yükleme</span>)
           </mat-option>
         </mat-select>
       </mat-form-field>
 
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" style="min-width: 180px;">
-        <mat-label>Kare Hızı</mat-label>
-        <mat-select [(ngModel)]="selectedFrameRate" (ngModelChange)="onFrameRateChange()">
-          <mat-option *ngFor="let f of frameRates" [value]="f.value">
-            {{ formatFps(f.value) }} ({{ f.count }})
-          </mat-option>
-        </mat-select>
-      </mat-form-field>
-
-      <p style="font-size: 12px; color: gray; margin: 0; flex: 1; min-width: 260px;">
-        VMAF farklı kaynaklar ve farklı kare hızları arasında karşılaştırılamaz — aynı bitrate
-        sakin bir videoda 90, hareketli bir videoda 65 verir; kaynağın hızından farklı bir fps'e
-        çevrilmiş çıktı ise kare atladığı için ayrıca düşük alır. Bu yüzden grafik tek bir
-        kaynak video ve tek bir kare hızı için çizilir.
+      <p style="font-size: 12px; color: var(--text-dim); margin: 0; flex: 1; min-width: 260px;">
+        VMAF farklı kaynaklar arasında karşılaştırılamaz — aynı bitrate sakin bir videoda 90,
+        hareketli bir videoda 65 verir. Bu yüzden her iki grafik de tek bir kaynak video için çizilir.
+        Soldaki grafik kare hızını sabitleyip bitrate'i, sağdaki bitrate'i sabitleyip kare hızını değiştirir.
       </p>
     </div>
   </mat-card>
 
   <!-- Durumlar -->
-  <mat-card *ngIf="isLoading" style="padding: 40px; text-align: center; color: gray;">
+  <mat-card *ngIf="isLoading" class="empty">
     Ölçümler yükleniyor...
   </mat-card>
 
-  <mat-card *ngIf="!isLoading && loadError" style="padding: 30px; text-align: center; color: #c62828;">
+  <mat-card *ngIf="!isLoading && loadError" class="empty" style="color: var(--danger);">
     {{ loadError }}
   </mat-card>
 
-  <mat-card *ngIf="!isLoading && !loadError && videos.length === 0" style="padding: 30px; text-align: center; color: gray;">
-    <mat-icon style="font-size: 40px; width: 40px; height: 40px; color: #bdbdbd;">query_stats</mat-icon>
+  <mat-card *ngIf="!isLoading && !loadError && videos.length === 0" class="empty">
+    <mat-icon style="font-size: 40px; width: 40px; height: 40px; color: var(--text-muted);">query_stats</mat-icon>
     <p style="margin: 10px 0 0 0;">Henüz tamamlanmış kalite ölçümü yok.</p>
     <p style="font-size: 13px; margin: 4px 0 0 0;">
       İşlemler sekmesinde bir çıktının "Kaliteyi Ölç" düğmesine basınca burada görünür.
     </p>
   </mat-card>
 
-  <!-- Grafik -->
-  <mat-card *ngIf="!isLoading && hasData" style="padding: 20px; border-radius: 8px;">
-    <h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 500;">
-      Bitrate – Kalite Eğrisi
-    </h3>
-    <p style="margin: 0 0 12px 0; font-size: 12px; color: gray;">
-      {{ selectedVideoName }}{{ selectedFrameRate ? ' · ' + formatFps(selectedFrameRate) : '' }}
-      — noktalar ölçülen değerler, çizgiler aradaki tahmin.
-      İçi dolu halka o bitrate'te kazanan çözünürlüğü gösterir.
+  <!--
+    Iki sutun: her sutunda once grafik, hemen altinda o grafigin sayisal
+    karsiligi. Dar ekranda sutunlar alt alta gecer.
+  -->
+  <div *ngIf="!isLoading && videos.length > 0"
+       style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start;">
+
+    <!-- Sol sutun: kare hizi sabit, bitrate degisiyor -->
+    <div style="flex: 1 1 460px; min-width: 380px; display: flex; flex-direction: column; gap: 20px;">
+      <mat-card class="card">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 180px;">
+            <h3 style="margin: 0 0 2px 0; font-size: 15px; font-weight: 500;">{{ bitrateChart.title }}</h3>
+            <p style="margin: 0; font-size: 11.5px; color: var(--text-dim);">{{ bitrateChart.subtitle }}</p>
+          </div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" style="width: 150px;">
+            <mat-label>Kare Hızı</mat-label>
+            <mat-select [(ngModel)]="selectedFrameRate" (ngModelChange)="onFrameRateChange()">
+              <mat-option *ngFor="let f of frameRates" [value]="f.value">
+                {{ formatFps(f.value) }} ({{ f.count }})
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+        <ng-container *ngTemplateOutlet="chartTpl; context: { $implicit: bitrateChart }"></ng-container>
+      </mat-card>
+
+      <ng-container *ngTemplateOutlet="tableTpl; context: { $implicit: bitrateTable }"></ng-container>
+    </div>
+
+    <!-- Sag sutun: bitrate sabit, kare hizi degisiyor -->
+    <div style="flex: 1 1 460px; min-width: 380px; display: flex; flex-direction: column; gap: 20px;">
+      <mat-card class="card">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 180px;">
+            <h3 style="margin: 0 0 2px 0; font-size: 15px; font-weight: 500;">{{ fpsChart.title }}</h3>
+            <p style="margin: 0; font-size: 11.5px; color: var(--text-dim);">{{ fpsChart.subtitle }}</p>
+          </div>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" style="width: 170px;">
+            <mat-label>Bitrate</mat-label>
+            <mat-select [(ngModel)]="selectedBitrate" (ngModelChange)="onBitrateChange()">
+              <mat-option *ngFor="let b of bitrates" [value]="b.value">
+                {{ formatBitrate(b.value) }} ({{ b.fpsCount }} kare hızı)
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+        <ng-container *ngTemplateOutlet="chartTpl; context: { $implicit: fpsChart }"></ng-container>
+      </mat-card>
+
+      <ng-container *ngTemplateOutlet="tableTpl; context: { $implicit: fpsTable }"></ng-container>
+    </div>
+  </div>
+
+  <!--
+    Karar matrisi: iki grafik tek bir dilime bakiyor, bu tablo butun dilimlerin
+    kararini tek ekranda veriyor. Secicilerden bagimsiz.
+  -->
+  <mat-card *ngIf="!isLoading && !ladder.empty" class="card" style="margin-top: var(--s4);">
+    <h3 style="margin: 0 0 2px 0; font-size: 16px; font-weight: 500;">Hangi Çözünürlük?</h3>
+    <p style="margin: 0 0 14px 0; font-size: 12px; color: var(--text-dim);">
+      {{ selectedVideoName }} — her bant genişliği ve kare hızı için önerilen çözünürlük.
+      Hücrenin üstüne gelince o kombinasyondaki bütün skorlar görünür.
     </p>
 
     <div style="overflow-x: auto;">
-      <svg [attr.viewBox]="'0 0 ' + chartWidth + ' ' + chartHeight"
-           style="width: 100%; min-width: 640px; height: auto; display: block; font-family: inherit;">
-
-        <!-- Yatay ızgara ve Y ekseni -->
-        <g *ngFor="let t of yTicks">
-          <line [attr.x1]="margin.left" [attr.x2]="chartWidth - margin.right"
-                [attr.y1]="t.pos" [attr.y2]="t.pos"
-                stroke="#eceff1" stroke-width="1" />
-          <text [attr.x]="margin.left - 10" [attr.y]="t.pos + 4"
-                text-anchor="end" font-size="11" fill="#78909c">{{ t.label }}</text>
-        </g>
-
-        <!-- Kalite eşikleri -->
-        <g *ngFor="let th of thresholds">
-          <g *ngIf="thresholdVisible(th.value)">
-            <line [attr.x1]="margin.left" [attr.x2]="chartWidth - margin.right"
-                  [attr.y1]="yScale(th.value)" [attr.y2]="yScale(th.value)"
-                  [attr.stroke]="th.color" stroke-width="1" stroke-dasharray="4 4" opacity="0.5" />
-            <!-- Etiket solda: veri noktalari yuksek bitrate'te saga toplandigi icin
-                 sagda cakisiyordu -->
-            <text [attr.x]="margin.left + 6" [attr.y]="yScale(th.value) - 5"
-                  text-anchor="start" font-size="10" [attr.fill]="th.color" opacity="0.9">
-              {{ th.value }} · {{ th.label }}
-            </text>
-          </g>
-        </g>
-
-        <!-- X ekseni -->
-        <line [attr.x1]="margin.left" [attr.x2]="chartWidth - margin.right"
-              [attr.y1]="margin.top + plotHeight" [attr.y2]="margin.top + plotHeight"
-              stroke="#b0bec5" stroke-width="1" />
-        <g *ngFor="let t of xTicks">
-          <line [attr.x1]="t.pos" [attr.x2]="t.pos"
-                [attr.y1]="margin.top + plotHeight" [attr.y2]="margin.top + plotHeight + 5"
-                stroke="#b0bec5" stroke-width="1" />
-          <text [attr.x]="t.pos" [attr.y]="margin.top + plotHeight + 18"
-                text-anchor="middle" font-size="11" fill="#78909c">{{ t.label }}</text>
-        </g>
-
-        <!-- Eksen başlıkları -->
-        <text [attr.x]="margin.left + plotWidth / 2" [attr.y]="chartHeight - 14"
-              text-anchor="middle" font-size="12" fill="#546e7a">
-          Video bitrate (kbps, logaritmik)
-        </text>
-        <text [attr.x]="-(margin.top + plotHeight / 2)" [attr.y]="16"
-              transform="rotate(-90)" text-anchor="middle" font-size="12" fill="#546e7a">
-          VMAF
-        </text>
-
-        <!-- Eğriler -->
-        <g *ngFor="let s of series">
-          <path *ngIf="s.path" [attr.d]="s.path" fill="none"
-                [attr.stroke]="s.color" stroke-width="2.5"
-                stroke-linejoin="round" stroke-linecap="round" />
-
-          <g *ngFor="let p of s.points">
-            <!-- Kazanan nokta içi dolu ve daha büyük -->
-            <circle [attr.cx]="p.x" [attr.cy]="p.y" [attr.r]="p.isWinner ? 7 : 4.5"
-                    [attr.fill]="p.isWinner ? s.color : '#ffffff'"
-                    [attr.stroke]="s.color" stroke-width="2.5">
-              <title>{{ p.tooltip }}</title>
-            </circle>
-          </g>
-        </g>
-
-        <!-- Açıklama -->
-        <g *ngFor="let s of series; let i = index">
-          <line [attr.x1]="legendX" [attr.x2]="legendX + 18"
-                [attr.y1]="legendY(i)" [attr.y2]="legendY(i)"
-                [attr.stroke]="s.color" stroke-width="2.5" />
-          <circle [attr.cx]="legendX + 9" [attr.cy]="legendY(i)" r="4"
-                  fill="#ffffff" [attr.stroke]="s.color" stroke-width="2.5" />
-          <text [attr.x]="legendX + 26" [attr.y]="legendY(i) + 4"
-                font-size="12" fill="#37474f">{{ s.label }}</text>
-        </g>
-      </svg>
-    </div>
-  </mat-card>
-
-  <!-- Sayısal tablo -->
-  <mat-card *ngIf="!isLoading && hasData" style="margin-top: 20px; padding: 20px; border-radius: 8px;">
-    <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 500;">Bitrate Karşılaştırması</h3>
-    <div style="overflow-x: auto;">
-      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+      <table style="border-collapse: separate; border-spacing: 4px; font-size: 13px;">
         <thead>
-          <tr style="border-bottom: 2px solid #eceff1;">
-            <th style="text-align: left; padding: 8px 12px; color: #546e7a; font-weight: 500;">Bitrate</th>
-            <th *ngFor="let h of seriesHeights"
-                style="text-align: right; padding: 8px 12px; color: #546e7a; font-weight: 500;">
-              {{ h }}p
+          <tr>
+            <th style="text-align: left; padding: 6px 10px; color: var(--text-dim); font-weight: 500;">Kare Hızı</th>
+            <th *ngFor="let b of ladder.bitrates"
+                style="text-align: center; padding: 6px 12px; color: var(--text-dim); font-weight: 500; white-space: nowrap;">
+              {{ b }}k
             </th>
-            <th style="text-align: right; padding: 8px 12px; color: #546e7a; font-weight: 500;">Kazanan</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of comparisonRows" style="border-bottom: 1px solid #f5f5f5;">
-            <td style="padding: 8px 12px; font-weight: 500;">{{ row.bitrate }} kbps</td>
+          <tr *ngFor="let row of ladder.rows">
+            <td style="padding: 6px 10px; font-weight: 500; white-space: nowrap;">{{ row.label }}</td>
+            <td *ngFor="let c of row.cells"
+                [matTooltip]="c.tooltip" matTooltipClass="onerituyu"
+                [style.background]="c.background"
+                [style.color]="c.color"
+                style="text-align: center; padding: 8px 12px; border-radius: 5px;
+                       font-weight: 600; white-space: nowrap; cursor: default;">
+              {{ c.label }}<span *ngIf="c.tie" style="font-weight: 400;">~</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="font-size: 12px; color: var(--text-dim); margin: 14px 0 0 0; line-height: 1.6;">
+      <strong>~</strong> işareti: en yüksek skoru alan çözünürlük değil, ona
+      {{ tieThreshold }} puandan yakın olan <em>daha düşük</em> çözünürlük önerildi — aynı kaliteyi
+      daha az encode ve decode maliyetiyle verdiği için. Bu tabloda
+      {{ ladder.tieCount }} hücre bu durumda.
+      Sınırın soldan sağa 480p → 720p → 1080p ilerlemesi beklenen davranış; kare hızı
+      arttıkça sınırın sağa kayması ise aynı bandın daha çok kareye bölünmesinden.
+    </p>
+  </mat-card>
+</div>
+
+<!--
+  Iki tablo da ayni sablondan ciziliyor; fark satirlarin neye gore acildigi
+  (bitrate ya da kare hizi). Kalin yazi o satirin kazanani.
+-->
+<ng-template #tableTpl let-t>
+  <mat-card *ngIf="!t.empty" class="card">
+    <h3 style="margin: 0 0 10px 0; font-size: 15px; font-weight: 500;">{{ t.title }}</h3>
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="border-bottom: 2px solid var(--border-soft);">
+            <th style="text-align: left; padding: 7px 10px; color: var(--text-dim); font-weight: 500;">
+              {{ t.firstColumn }}
+            </th>
+            <th *ngFor="let h of t.heights"
+                style="text-align: right; padding: 7px 10px; color: var(--text-dim); font-weight: 500;">
+              {{ h }}p
+            </th>
+            <th style="text-align: right; padding: 7px 10px; color: var(--text-dim); font-weight: 500;">Kazanan</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of t.rows" style="border-bottom: 1px solid var(--border-soft);">
+            <td style="padding: 7px 10px; font-weight: 500;">{{ row.label }}</td>
             <td *ngFor="let score of row.scores; let i = index"
-                style="text-align: right; padding: 8px 12px;"
-                [style.font-weight]="row.winnerHeight === seriesHeights[i] ? '700' : '400'"
-                [style.color]="score != null ? vmafColor(score) : '#bdbdbd'">
+                style="text-align: right; padding: 7px 10px;"
+                [style.font-weight]="row.winnerHeight === t.heights[i] ? '700' : '400'"
+                [style.color]="score != null ? vmafColor(score) : 'var(--text-muted)'">
               {{ score != null ? (score | number:'1.1-1') : '—' }}
             </td>
-            <td style="text-align: right; padding: 8px 12px; font-weight: 600; color: #37474f;">
+            <td style="text-align: right; padding: 7px 10px; font-weight: 600; color: var(--text);">
               {{ row.winnerHeight ? row.winnerHeight + 'p' : '—' }}
             </td>
           </tr>
@@ -242,10 +190,96 @@
       </table>
     </div>
 
-    <p style="font-size: 12px; color: gray; margin: 14px 0 0 0; line-height: 1.6;">
-      Ölçüm her iki videoyu da 1920x1080'e getirip karşılaştırır; düşük çözünürlüklü çıktılar
-      büyütüldüğü için doğal bir tavana çarpar. Bu, 1080p ekranda izleyen birinin gördüğüdür —
-      küçük ekranda algılanan kalite bundan iyidir.
-    </p>
+    <p style="font-size: 11.5px; color: var(--text-dim); margin: 12px 0 0 0; line-height: 1.6;">{{ t.note }}</p>
   </mat-card>
-</div>
+</ng-template>
+
+<!--
+  Iki grafik de ayni sablondan ciziliyor; fark sadece modelde (x ekseni
+  bitrate mi kare hizi mi). Ekran koordinatlari bilesende hesaplandigi icin
+  burada olcek fonksiyonu cagrilmiyor.
+-->
+<ng-template #chartTpl let-m>
+  <div *ngIf="m.empty" style="padding: 48px 12px; text-align: center; color: var(--border); font-size: 13px;">
+    <mat-icon style="font-size: 32px; width: 32px; height: 32px;">show_chart</mat-icon>
+    <p style="margin: 8px 0 0 0;">Bu seçim için ölçüm yok.</p>
+  </div>
+
+  <div *ngIf="!m.empty" style="overflow-x: auto;">
+    <svg [attr.viewBox]="'0 0 ' + chartWidth + ' ' + chartHeight"
+         style="width: 100%; height: auto; display: block; font-family: inherit;">
+
+      <!-- Yatay ızgara ve Y ekseni -->
+      <g *ngFor="let t of m.yTicks">
+        <line [attr.x1]="margin.left" [attr.x2]="chartWidth - margin.right"
+              [attr.y1]="t.pos" [attr.y2]="t.pos"
+              stroke="var(--border-soft)" stroke-width="1" />
+        <text [attr.x]="margin.left - 8" [attr.y]="t.pos + 4"
+              text-anchor="end" font-size="10" fill="var(--text-dim)">{{ t.label }}</text>
+      </g>
+
+      <!-- Kalite eşikleri -->
+      <g *ngFor="let th of m.thresholdLines">
+        <line [attr.x1]="margin.left" [attr.x2]="chartWidth - margin.right"
+              [attr.y1]="th.y" [attr.y2]="th.y"
+              [attr.stroke]="th.color" stroke-width="1" stroke-dasharray="4 4" opacity="0.5" />
+        <!-- Etiket solda: veri noktalari yuksek bitrate'te saga toplandigi icin
+             sagda cakisiyordu -->
+        <text [attr.x]="margin.left + 5" [attr.y]="th.y - 4"
+              text-anchor="start" font-size="9.5" [attr.fill]="th.color" opacity="0.9">
+          {{ th.label }}
+        </text>
+      </g>
+
+      <!-- X ekseni -->
+      <line [attr.x1]="margin.left" [attr.x2]="chartWidth - margin.right"
+            [attr.y1]="margin.top + plotHeight" [attr.y2]="margin.top + plotHeight"
+            stroke="var(--border)" stroke-width="1" />
+      <g *ngFor="let t of m.xTicks">
+        <line [attr.x1]="t.pos" [attr.x2]="t.pos"
+              [attr.y1]="margin.top + plotHeight" [attr.y2]="margin.top + plotHeight + 5"
+              stroke="var(--border)" stroke-width="1" />
+        <text *ngIf="t.showLabel"
+              [attr.x]="t.pos" [attr.y]="margin.top + plotHeight + 17"
+              text-anchor="middle" font-size="10" fill="var(--text-dim)">{{ t.label }}</text>
+      </g>
+
+      <!-- Eksen başlıkları -->
+      <text [attr.x]="margin.left + plotWidth / 2" [attr.y]="chartHeight - 12"
+            text-anchor="middle" font-size="11" fill="var(--text-dim)">
+        {{ m.xAxisLabel }}
+      </text>
+      <text [attr.x]="-(margin.top + plotHeight / 2)" [attr.y]="14"
+            transform="rotate(-90)" text-anchor="middle" font-size="11" fill="var(--text-dim)">
+        VMAF
+      </text>
+
+      <!-- Eğriler -->
+      <g *ngFor="let s of m.series">
+        <path *ngIf="s.path" [attr.d]="s.path" fill="none"
+              [attr.stroke]="s.color" stroke-width="2.5"
+              stroke-linejoin="round" stroke-linecap="round" />
+
+        <g *ngFor="let p of s.points">
+          <!-- Kazanan nokta içi dolu ve daha büyük -->
+          <circle [attr.cx]="p.x" [attr.cy]="p.y" [attr.r]="p.isWinner ? 6.5 : 4"
+                  [attr.fill]="p.isWinner ? s.color : '#ffffff'"
+                  [attr.stroke]="s.color" stroke-width="2.5">
+            <title>{{ p.tooltip }}</title>
+          </circle>
+        </g>
+      </g>
+
+      <!-- Açıklama -->
+      <g *ngFor="let l of m.legend">
+        <line [attr.x1]="legendX" [attr.x2]="legendX + 16"
+              [attr.y1]="l.y" [attr.y2]="l.y"
+              [attr.stroke]="l.color" stroke-width="2.5" />
+        <circle [attr.cx]="legendX + 8" [attr.cy]="l.y" r="3.5"
+                fill="var(--surface)" [attr.stroke]="l.color" stroke-width="2.5" />
+        <text [attr.x]="legendX + 22" [attr.y]="l.y + 4"
+              font-size="11" fill="var(--text)">{{ l.label }}</text>
+      </g>
+    </svg>
+  </div>
+</ng-template>

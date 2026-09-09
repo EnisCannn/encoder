@@ -1,4 +1,5 @@
 import { Component, ViewChild, OnInit, TemplateRef } from '@angular/core';
+import { forkJoin } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,6 +10,7 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCardModule } from '@angular/material/card';
 import { MatPaginatorModule, MatPaginator } from '@angular/material/paginator';
@@ -25,6 +27,8 @@ export interface Preset {
   audioBitrate: number;
   frameRate: number;
   format: string;
+  /** Kalibrasyon taramasinin urettigi sablon mu? Listede rozetle ayirt ediliyor. */
+  calibration?: boolean;
 }
 
 @Component({
@@ -41,6 +45,7 @@ export interface Preset {
     MatSelectModule,
     FormsModule,
     MatIconModule,
+    MatMenuModule,
     MatTooltipModule,
     MatCardModule,
     MatPaginatorModule,
@@ -50,6 +55,7 @@ export interface Preset {
 })
 export class PresetComponent implements OnInit {
   displayedColumns: string[] = [
+    'select',
     'id', 'name', 'format', 'videoCodec', 'resolution', 'videoBitrate', 'audioCodec', 'audioBitrate', 'frameRate', 'actions',
   ];
   dataSource = new MatTableDataSource<Preset>([]);
@@ -69,7 +75,10 @@ export class PresetComponent implements OnInit {
   // Tüm sütunlar için filtre değişkenleri
   topSearch = {
     id: '', name: '', format: '', videoCodec: '', resolution: '',
-    videoBitrate: '', audioCodec: '', audioBitrate: '', frameRate: ''
+    videoBitrate: '', audioCodec: '', audioBitrate: '', frameRate: '',
+    // Kalibrasyon sablonlari da listede; varsayilan olarak yalnizca kendi
+    // sablonlarini gosteriyoruz, 150 otomatik kayit listeyi bogmasin diye.
+    tur: 'normal'
   };
 
   constructor(
@@ -92,6 +101,9 @@ export class PresetComponent implements OnInit {
           this.paginator.pageSize = 10;
         }
         this.setupFilterPredicate();
+        // Varsayilan "tur" filtresi normal sablonlar; yuklemede de uygulanmali,
+        // yoksa dataSource.filter bos kalir ve predicate hic calismaz.
+        this.applyTopFilters();
       },
       error: (err) => console.error('Veriler çekilirken hata oluştu:', err),
     });
@@ -113,11 +125,55 @@ export class PresetComponent implements OnInit {
       const matchABitrate = search.audioBitrate === '' || String(data.audioBitrate) === String(search.audioBitrate);
       const matchFps = search.frameRate === '' || String(data.frameRate) === String(search.frameRate);
 
-      return matchId && matchName && matchFormat && matchVCodec && matchRes &&
+      const kalibrasyon = data.calibration === true;
+      const matchTur =
+        search.tur === '' ? true : search.tur === 'kalibrasyon' ? kalibrasyon : !kalibrasyon;
+
+      return matchTur && matchId && matchName && matchFormat && matchVCodec && matchRes &&
         matchVBitrate && matchACodec && matchABitrate && matchFps;
     };
   }
 
+  /** Filtre paneli acik mi. Arama alani her zaman gorunur, gerisi katlanir. */
+  showFilters = false;
+
+  /** Filtre alanlarinin ekranda gorunen adlari; rozetlerde kullaniliyor. */
+  private readonly filterLabels: Record<string, string> = {
+    id: 'ID', name: 'Ad', format: 'Format', videoCodec: 'V. Codec',
+    resolution: 'Çözünürlük', videoBitrate: 'V. Bitrate',
+    audioCodec: 'A. Codec', audioBitrate: 'A. Bitrate', frameRate: 'FPS',
+    tur: 'Tür',
+  };
+
+  toggleFilters() {
+    this.showFilters = !this.showFilters;
+  }
+
+  /** Baslikta "14 sablon" yerine gorunen/toplam ayrimini gosterebilmek icin. */
+  get calibrationCount(): number {
+    return this.dataSource.data.filter((p) => p.calibration === true).length;
+  }
+
+  /** Dolu olan filtreler; rozet olarak gosterilip tek tek kaldirilabiliyor. */
+  get activeFilters(): { key: string; label: string; value: string }[] {
+    return Object.entries(this.topSearch)
+      .filter(([, v]) => v !== '' && v != null)
+      .map(([key, value]) => ({
+        key,
+        label: this.filterLabels[key] ?? key,
+        value: String(value),
+      }));
+  }
+
+  removeFilter(key: string) {
+    (this.topSearch as Record<string, string>)[key] = '';
+    this.applyTopFilters();
+  }
+
+  /**
+   * Filtreler artik her degisiklikte aninda uygulaniyor; "Filtrele" dugmesine
+   * basmak gerekmiyor. Dugme kaldirilinca filtre cubugu iki satirdan bire indi.
+   */
   applyTopFilters() {
     this.dataSource.filter = JSON.stringify(this.topSearch);
   }
@@ -125,9 +181,83 @@ export class PresetComponent implements OnInit {
   clearTopFilters() {
     this.topSearch = {
       id: '', name: '', format: '', videoCodec: '', resolution: '',
-      videoBitrate: '', audioCodec: '', audioBitrate: '', frameRate: ''
+      videoBitrate: '', audioCodec: '', audioBitrate: '', frameRate: '', tur: 'normal'
     };
     this.applyTopFilters();
+  }
+
+
+  // ---------- Coklu secim ve toplu silme ----------
+  // Satir eylemleri uc nokta menusune tasindi. Ayni islemi cok satirda yapmak
+  // her satir icin menu acmak demek olurdu; bunun yerine secim kutulari ve
+  // secim yapilinca beliren bir toplu islem seridi var.
+
+  selectedIds = new Set<string>();
+  isBulkBusy = false;
+
+  private get visibleRows(): any[] {
+    return this.dataSource.filteredData;
+  }
+
+  isSelected(row: any): boolean {
+    return this.selectedIds.has(row.id);
+  }
+
+  toggleRow(row: any) {
+    if (this.selectedIds.has(row.id)) {
+      this.selectedIds.delete(row.id);
+    } else {
+      this.selectedIds.add(row.id);
+    }
+  }
+
+  get allVisibleSelected(): boolean {
+    const rows = this.visibleRows;
+    return rows.length > 0 && rows.every((r) => this.selectedIds.has(r.id));
+  }
+
+  /** Bazisi secili: baslik kutusu belirsiz gorunsun. */
+  get someVisibleSelected(): boolean {
+    const rows = this.visibleRows;
+    return rows.some((r) => this.selectedIds.has(r.id)) && !this.allVisibleSelected;
+  }
+
+  toggleAll() {
+    if (this.allVisibleSelected) {
+      this.visibleRows.forEach((r) => this.selectedIds.delete(r.id));
+    } else {
+      this.visibleRows.forEach((r) => this.selectedIds.add(r.id));
+    }
+  }
+
+  clearSelection() {
+    this.selectedIds.clear();
+  }
+
+  get selectedCount(): number {
+    return this.visibleRows.filter((r) => this.selectedIds.has(r.id)).length;
+  }
+
+  /** Silme ucu tekil; secilen her kayit icin ayri istek atilip hepsi beklenir. */
+  bulkDelete() {
+    const ids = this.visibleRows.filter((r) => this.selectedIds.has(r.id)).map((r) => r.id);
+    if (ids.length === 0) return;
+    if (!confirm(ids.length + ' şablon silinecek. Emin misiniz?')) return;
+
+    this.isBulkBusy = true;
+    forkJoin(ids.map((id) => this.presetService.deletePreset(id as any))).subscribe({
+      next: () => this.bulkDone(),
+      error: (err) => {
+        console.error('Toplu silme hatası', err);
+        this.bulkDone();
+      },
+    });
+  }
+
+  private bulkDone() {
+    this.isBulkBusy = false;
+    this.clearSelection();
+    this.loadPresets();
   }
 
   addNewPreset() {

@@ -10,6 +10,11 @@ import java.util.UUID;
  *
  * Eğriler ayrı bir tabloda saklanmıyor; aynı video + aynı çözünürlükteki
  * noktalar arayüzde gruplanınca eğri kendiliğinden oluşuyor.
+ *
+ * source* alanları gruplamanın anahtarı: aynı dosya birden çok kez
+ * yüklendiğinde her yükleme ayrı bir videoId alıyor, ama içerik aynı olduğu
+ * için VMAF skorları karşılaştırılabilir ve tek eğriye ait. videoId ile
+ * gruplayınca aynı taramanın parçaları ayrı eğrilere bölünüyordu.
  */
 public record QualityCurvePoint(
         UUID jobId,
@@ -25,6 +30,10 @@ public record QualityCurvePoint(
         Double vmafMin,
         Double vmafHarmonicMean,
         Integer sampledSeconds,
-        Instant measuredAt
+        Instant measuredAt,
+        Long sourceSize,
+        Integer sourceWidth,
+        Integer sourceHeight,
+        BigDecimal sourceDuration
 ) {
 }

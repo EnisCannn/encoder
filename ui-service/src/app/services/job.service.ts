@@ -9,7 +9,14 @@ export interface Job {
   outputFileName?: string;
   status: string;
   progress: number;
-  preset?: { name: string; width?: number; height?: number };
+  // Rozette kalite etiketi bitrate ve fps'i de yazdigi icin bu alanlar gerekli
+  preset?: {
+    name: string;
+    width?: number;
+    height?: number;
+    videoBitrate?: number;
+    frameRate?: number | string | null;
+  };
   videoId?: string;
   createdAt?: string;
   // Paket modunda dolu olur: aynı yüklemeden doğan işleri birbirine bağlar

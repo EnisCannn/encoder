@@ -1,3 +1,489 @@
-/* You can add global styles to this file, and also import other style files */
+/* Global styles + tasarim sistemi.
+   Onceden burasi 3 satirdi ve butun renkler/olculer 301 satir ici style
+   icinde elle yaziliydi. Artik tek kaynak burasi. */
 
 @import 'tailwindcss';
+
+:root {
+  /* --- Yuzeyler: en arkadan one dogru acilir --- */
+  --bg: #0d1117;          /* sayfa zemini */
+  --surface: #151b23;     /* kart */
+  --surface-2: #1c2430;   /* tablo basligi, hover, girinti */
+  --surface-3: #232d3b;   /* secili satir, chip */
+  --border: #2a3441;
+  --border-soft: #212a35;
+
+  /* --- Yazi --- */
+  --text: #e6edf3;        /* ana metin */
+  --text-dim: #9aa7b4;    /* ikincil, etiket */
+  --text-muted: #6b7885;  /* ucuncul, ipucu */
+
+  /* --- Vurgu ve durumlar --- */
+  --accent: #4493f8;
+  --accent-hover: #58a6ff;
+  --accent-soft: rgba(68, 147, 248, 0.14);
+  --accent-border: rgba(68, 147, 248, 0.4);
+
+  --success: #3fb950;
+  --warning: #d29922;
+  --danger: #f85149;
+  --info: #58a6ff;
+
+  --success-soft: rgba(63, 185, 80, 0.14);
+  --warning-soft: rgba(210, 153, 34, 0.14);
+  --danger-soft: rgba(248, 81, 73, 0.14);
+
+  /* --- Olcu: 4px temelli --- */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+
+  /* --- Kose --- */
+  --r-sm: 6px;
+  --r: 10px;
+  --r-lg: 14px;
+  --r-pill: 999px;
+
+  /* --- Yazi olcegi --- */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 13px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  --sidebar-w: 236px;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-base);
+}
+
+/* ================= Sayfa kalibi ================= */
+/* Her sayfa ayni iskeleti kullaniyor: baslik seridi + icerik. */
+
+.page {
+  padding: var(--s5) var(--s5) var(--s6);
+  max-width: 1600px;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s4);
+  margin-bottom: var(--s5);
+  flex-wrap: wrap;
+}
+
+.page-title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--text);
+}
+
+.page-sub {
+  margin: var(--s1) 0 0;
+  font-size: var(--fs-base);
+  color: var(--text-dim);
+}
+
+/* ================= Kart ================= */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: var(--s4);
+}
+
+.card + .card {
+  margin-top: var(--s4);
+}
+
+/* ================= Filtre cubugu ================= */
+/* Eskiden 9 alan her zaman ekranda duruyordu. Artik tek bir arama alani ve
+   gerektiginde acilan bir panel var; aktif filtreler rozet olarak gosteriliyor. */
+
+.filterbar {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  margin-bottom: var(--s4);
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 0 var(--s3);
+  height: 34px;
+  flex: 1;
+  min-width: 200px;
+  max-width: 380px;
+  transition: border-color 0.15s;
+}
+
+.search:focus-within {
+  border-color: var(--accent-border);
+}
+
+.search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-family: inherit;
+}
+
+.search input::placeholder {
+  color: var(--text-muted);
+}
+
+.search .mat-icon {
+  font-size: 17px;
+  width: 17px;
+  height: 17px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Ikincil, cerceveli dugme: filtre ac/kapa, temizle, yenile */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  height: 34px;
+  padding: 0 var(--s3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: #37424f;
+}
+
+.btn.on {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.btn .mat-icon {
+  font-size: 17px;
+  width: 17px;
+  height: 17px;
+}
+
+/* Sayfanin birincil eylemi. Eskiden her sayfada farkli renkteydi. */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  height: 34px;
+  padding: 0 var(--s4);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  color: #06121f;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn-primary .mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+/* Kac filtre aktif */
+.count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: #06121f;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+/* Acilan filtre paneli */
+.filter-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: var(--s4);
+  margin-bottom: var(--s4);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--s3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.field input,
+.field select {
+  height: 32px;
+  padding: 0 var(--s2);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: var(--accent-border);
+}
+
+.field select option {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* Aktif filtreler */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-bottom: var(--s4);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 var(--s2) 0 var(--s3);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--r-pill);
+  color: var(--accent);
+  font-size: var(--fs-sm);
+}
+
+.chip button {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.chip button:hover {
+  opacity: 1;
+}
+
+.chip .mat-icon {
+  font-size: 15px;
+  width: 15px;
+  height: 15px;
+}
+
+/* ================= Bos durum ================= */
+
+.empty {
+  padding: var(--s6) var(--s4);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.empty .mat-icon {
+  font-size: 36px;
+  width: 36px;
+  height: 36px;
+  color: var(--border);
+}
+
+.empty p {
+  margin: var(--s3) 0 0;
+  font-size: var(--fs-base);
+}
+
+/* ================= Angular Material uyumu ================= */
+/* Material bilesenleri kendi sistem degiskenlerini kullaniyor; koyu temaya
+   gecince cogu kendiliginden donuyor. Kalanlari burada hizaliyoruz. */
+
+.mat-mdc-table,
+.mat-mdc-paginator {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+
+.mat-mdc-header-row {
+  background: var(--surface-2) !important;
+}
+
+.mat-mdc-header-cell {
+  color: var(--text-dim) !important;
+  font-size: var(--fs-sm) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px;
+  border-bottom-color: var(--border) !important;
+}
+
+.mat-mdc-cell {
+  color: var(--text) !important;
+  font-size: var(--fs-base) !important;
+  border-bottom-color: var(--border-soft) !important;
+}
+
+.mat-mdc-row:hover .mat-mdc-cell {
+  background: var(--surface-2);
+}
+
+.mat-mdc-paginator {
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-sm) !important;
+}
+
+/* Tablo + sayfalama tek bir kutu gibi dursun */
+.table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.mat-mdc-dialog-surface {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+
+.mat-mdc-tooltip-surface {
+  background: #05080c !important;
+  color: var(--text) !important;
+  font-size: var(--fs-sm) !important;
+  border: 1px solid var(--border);
+}
+
+/* ================= Coklu secim ================= */
+/* Satir eylemleri uc nokta menusune tasindi; ayni islemi cok satirda yapmak
+   icin secim kutulari ve ustte beliren bir toplu islem seridi var. */
+
+.check {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.bulkbar {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  padding: var(--s2) var(--s3);
+  margin-bottom: var(--s3);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--r-sm);
+}
+
+.bulkbar .n {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.bulkbar .sep {
+  flex: 1;
+}
+
+/* Yikici toplu islem ayirt edilsin */
+.btn.danger:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+/* Uc nokta dugmesi: satirda sessiz dursun, uzerine gelince belirsin */
+.rowmenu {
+  color: var(--text-muted) !important;
+}
+
+.mat-mdc-row:hover .rowmenu {
+  color: var(--text) !important;
+}
+
+.mat-mdc-menu-panel {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border);
+}
+
+.mat-mdc-menu-item {
+  color: var(--text) !important;
+  font-size: var(--fs-base) !important;
+}
+
+.mat-mdc-menu-item:hover:not([disabled]) {
+  background: var(--surface-3) !important;
+}
+
+.mat-mdc-menu-item .mat-icon {
+  color: var(--text-dim);
+}

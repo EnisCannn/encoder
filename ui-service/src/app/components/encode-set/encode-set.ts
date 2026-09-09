@@ -1,4 +1,5 @@
 import { Component, OnInit, TemplateRef, ViewChild } from '@angular/core';
+import { forkJoin } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule, MatTableDataSource } from '@angular/material/table';
@@ -6,6 +7,7 @@ import { MatPaginatorModule, MatPaginator } from '@angular/material/paginator';
 import { MatSortModule, MatSort } from '@angular/material/sort';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
@@ -29,6 +31,7 @@ import { Preset } from '../preset/preset';
     MatSortModule,
     MatButtonModule,
     MatIconModule,
+    MatMenuModule,
     MatCardModule,
     MatChipsModule,
     MatDialogModule,
@@ -41,7 +44,8 @@ import { Preset } from '../preset/preset';
   styleUrl: './encode-set.css',
 })
 export class EncodeSetComponent implements OnInit {
-  displayedColumns: string[] = ['name', 'description', 'presetCount', 'presets', 'actions'];
+  displayedColumns: string[] = [
+    'select','name', 'description', 'presetCount', 'presets', 'actions'];
   dataSource = new MatTableDataSource<EncodeSet>([]);
 
   @ViewChild(MatSort) sort!: MatSort;
@@ -99,6 +103,80 @@ export class EncodeSetComponent implements OnInit {
       const matchPreset = presetNames.includes((s.preset || '').toLowerCase());
       return matchName && matchPreset;
     };
+  }
+
+
+  // ---------- Coklu secim ve toplu silme ----------
+  // Satir eylemleri uc nokta menusune tasindi. Ayni islemi cok satirda yapmak
+  // her satir icin menu acmak demek olurdu; bunun yerine secim kutulari ve
+  // secim yapilinca beliren bir toplu islem seridi var.
+
+  selectedIds = new Set<string>();
+  isBulkBusy = false;
+
+  private get visibleRows(): any[] {
+    return this.dataSource.filteredData;
+  }
+
+  isSelected(row: any): boolean {
+    return this.selectedIds.has(row.id);
+  }
+
+  toggleRow(row: any) {
+    if (this.selectedIds.has(row.id)) {
+      this.selectedIds.delete(row.id);
+    } else {
+      this.selectedIds.add(row.id);
+    }
+  }
+
+  get allVisibleSelected(): boolean {
+    const rows = this.visibleRows;
+    return rows.length > 0 && rows.every((r) => this.selectedIds.has(r.id));
+  }
+
+  /** Bazisi secili: baslik kutusu belirsiz gorunsun. */
+  get someVisibleSelected(): boolean {
+    const rows = this.visibleRows;
+    return rows.some((r) => this.selectedIds.has(r.id)) && !this.allVisibleSelected;
+  }
+
+  toggleAll() {
+    if (this.allVisibleSelected) {
+      this.visibleRows.forEach((r) => this.selectedIds.delete(r.id));
+    } else {
+      this.visibleRows.forEach((r) => this.selectedIds.add(r.id));
+    }
+  }
+
+  clearSelection() {
+    this.selectedIds.clear();
+  }
+
+  get selectedCount(): number {
+    return this.visibleRows.filter((r) => this.selectedIds.has(r.id)).length;
+  }
+
+  /** Silme ucu tekil; secilen her kayit icin ayri istek atilip hepsi beklenir. */
+  bulkDelete() {
+    const ids = this.visibleRows.filter((r) => this.selectedIds.has(r.id)).map((r) => r.id);
+    if (ids.length === 0) return;
+    if (!confirm(ids.length + ' paket silinecek. Emin misiniz?')) return;
+
+    this.isBulkBusy = true;
+    forkJoin(ids.map((id) => this.encodeSetService.deleteSet(id))).subscribe({
+      next: () => this.bulkDone(),
+      error: (err) => {
+        console.error('Toplu silme hatası', err);
+        this.bulkDone();
+      },
+    });
+  }
+
+  private bulkDone() {
+    this.isBulkBusy = false;
+    this.clearSelection();
+    this.loadSets();
   }
 
   applyFilters() {

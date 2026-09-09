@@ -18,5 +18,7 @@ public record PresetResponse(
         Integer videoBitrate,
         Integer audioBitrate,
         BigDecimal frameRate,
-        Boolean isActive
+        Boolean isActive,
+        /** Kalibrasyon taramasinin urettigi gecici sablon mu? Arayuz ayirt etsin diye. */
+        Boolean calibration
 ) {}

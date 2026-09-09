@@ -6,6 +6,7 @@ import com.example.encoder.entity.EncodingPreset;
 import com.example.encoder.entity.JobStatus;
 import com.example.encoder.entity.MeasurementStatus;
 import com.example.encoder.entity.QualityMeasurement;
+import com.example.encoder.entity.Video;
 import com.example.encoder.repository.EncodingJobRepository;
 import com.example.encoder.repository.QualityMeasurementRepository;
 import com.example.encoder.service.QualityMeasurementService;
@@ -110,9 +111,15 @@ public class QualityMeasurementServiceImpl implements QualityMeasurementService 
                 continue;
             }
 
+            // Kaynagin olculeri de gonderiliyor: arayuz noktalari videoId yerine
+            // dosya kimligine gore grupluyor. Ayni dosya her yuklendiginde yeni
+            // bir videoId aliyor ve videoId ile gruplayinca ayni taramanin
+            // noktalari ayri eğrilere dagiliyordu.
+            Video video = job.getVideo();
+
             points.add(new QualityCurvePoint(
                     job.getId(),
-                    job.getVideo() != null ? job.getVideo().getId() : null,
+                    video != null ? video.getId() : null,
                     job.getInputFileName(),
                     preset.getName(),
                     preset.getWidth(),
@@ -124,7 +131,11 @@ public class QualityMeasurementServiceImpl implements QualityMeasurementService 
                     m.getVmafMin(),
                     m.getVmafHarmonicMean(),
                     m.getSampledSeconds(),
-                    m.getCompletedAt()));
+                    m.getCompletedAt(),
+                    video != null ? video.getSize() : null,
+                    video != null ? video.getWidth() : null,
+                    video != null ? video.getHeight() : null,
+                    video != null ? video.getDuration() : null));
         }
         return points;
     }

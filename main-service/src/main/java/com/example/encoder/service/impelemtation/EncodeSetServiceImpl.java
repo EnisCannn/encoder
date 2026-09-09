@@ -32,7 +32,8 @@ public class EncodeSetServiceImpl implements EncodeSetService {
                         p.getId(), p.getName(), p.getDescription(),
                         p.getFormat(), p.getVideoCodec(), p.getAudioCodec(),
                         p.getWidth(), p.getHeight(), p.getVideoBitrate(),
-                        p.getAudioBitrate(), p.getFrameRate(), p.getIsActive()))
+                        p.getAudioBitrate(), p.getFrameRate(), p.getIsActive(),
+                        Boolean.TRUE.equals(p.getCalibration())))
                 .collect(Collectors.toList());
 
         return new EncodeSetResponse(
