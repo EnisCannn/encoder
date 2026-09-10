@@ -182,8 +182,20 @@ public class EncodingJobServiceImpl implements EncodingJobService {
                 .append(preset.getFrameRate().stripTrailingZeros().toPlainString())
                 .append("fps");
         }
-        name.append('_').append(UUID.randomUUID().toString().substring(0, 8)).append(".mp4");
+        name.append('_').append(UUID.randomUUID().toString().substring(0, 8))
+            .append('.').append(outputExtension(preset));
         return name.toString();
+    }
+
+    /**
+     * Cikti uzantisi sablonun formatindan geliyor; format bos ise mp4.
+     * Onceden her yerde ".mp4" sabitti, yani sablonda MKV secmenin hicbir
+     * karsiligi yoktu.
+     */
+    private String outputExtension(EncodingPreset preset) {
+        return preset != null && preset.getFormat() != null
+                ? preset.getFormat().getExtension()
+                : "mp4";
     }
 
     /** Kaynak dosya adi: uzantisiz, dosya sisteminde guvenli, makul uzunlukta. */
@@ -207,7 +219,7 @@ public class EncodingJobServiceImpl implements EncodingJobService {
     private String buildRenditionFileName(EncodingPreset preset) {
         String safeName = preset.getName().replaceAll("[^A-Za-z0-9._-]", "_");
         String prefix = preset.getHeight() != null ? preset.getHeight() + "p_" : "";
-        return prefix + safeName + ".mp4";
+        return prefix + safeName + "." + outputExtension(preset);
     }
 
     @Override
