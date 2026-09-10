@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { environment } from '../environment';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
@@ -35,11 +36,11 @@ export interface Job {
   providedIn: 'root',
 })
 export class JobService {
-  private jobApiUrl = 'http://localhost:8081/api/encoding-jobs';
-  private videoApiUrl = 'http://localhost:8081/api/videos/upload';
-  private liveStreamApiUrl = 'http://localhost:8081/api/live';
-  private videoToolsApiUrl = 'http://localhost:8081/api/video-tools';
-  private qualityApiUrl = 'http://localhost:8081/api/quality';
+  private jobApiUrl = `${environment.apiBaseUrl}/api/encoding-jobs`;
+  private videoApiUrl = `${environment.apiBaseUrl}/api/videos/upload`;
+  private liveStreamApiUrl = `${environment.apiBaseUrl}/api/live`;
+  private videoToolsApiUrl = `${environment.apiBaseUrl}/api/video-tools`;
+  private qualityApiUrl = `${environment.apiBaseUrl}/api/quality`;
 
   constructor(private http: HttpClient) {}
 

@@ -246,7 +246,7 @@
           <mat-label>Video Codec</mat-label>
           <mat-select [(ngModel)]="newPresetData.videoCodec" name="vCodec">
             <mat-option value="H264">H.264 (AVC)</mat-option>
-            <mat-option value="H265">H.265 (HEVC)</mat-option>
+            <mat-option value="H265">H.265 (HEVC) — tarayıcıda önizlenemez</mat-option>
             <mat-option value="AV1">AV1</mat-option>
           </mat-select>
         </mat-form-field>
@@ -282,8 +282,8 @@
           <mat-label>Format</mat-label>
           <mat-select [(ngModel)]="newPresetData.format" name="format">
             <mat-option value="MP4">MP4</mat-option>
-            <mat-option value="MKV">MKV</mat-option>
-            <mat-option value="HLS">HLS</mat-option>
+            <mat-option value="MKV">MKV — tarayıcıda önizlenemez</mat-option>
+            <mat-option value="HLS">HLS — yalnızca paket çıktılarında</mat-option>
           </mat-select>
         </mat-form-field>
       </div>

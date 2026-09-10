@@ -142,3 +142,71 @@
     border-bottom-color: var(--accent);
   }
 }
+
+/* --- Sol menunun altindaki kullanici kutusu --- */
+.user-box {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3);
+  border-top: 1px solid var(--border-soft);
+}
+
+.user-box .avatar {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.user-box .user-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.user-box .user-name {
+  font-size: var(--fs-base);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-box .user-role {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.user-box .logout {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: var(--s1);
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.user-box .logout:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.user-box .logout .mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}

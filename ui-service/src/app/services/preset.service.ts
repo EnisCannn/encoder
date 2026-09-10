@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { environment } from '../environment';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Preset } from '../components/preset/preset'; // Tablodaki interface'imiz
@@ -8,7 +9,7 @@ import { Preset } from '../components/preset/preset'; // Tablodaki interface'imi
 })
 export class PresetService {
   // Spring Boot Main Servisimizin adresi (Controller'daki ismin bu olduğunu varsayıyoruz)
-  private apiUrl = 'http://localhost:8081/api/presets';
+  private apiUrl = `${environment.apiBaseUrl}/api/presets`;
 
   constructor(private http: HttpClient) {}
 

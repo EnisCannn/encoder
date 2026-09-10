@@ -20,7 +20,7 @@ html {
 }
 
 body {
-  // Uygulama koyu temada. Material'in kendi sistem degiskenleri bu satirla
+  // Varsayilan koyu tema. Material'in kendi sistem degiskenleri bu satirla
   // birlikte koyu paletlerine geciyor; ozel renklerimiz styles.css'te.
   color-scheme: dark;
 
@@ -35,4 +35,12 @@ body {
   // Reset the user agent margin.
   margin: 0;
   height: 100%;
+}
+
+// Ayarlardan aydinlik moda gecilince <html> uzerine data-theme="light"
+// yaziliyor. color-scheme'i burada cevirmek Material bilesenlerinin de
+// (dialog, select, sayfalayici) acik paletlerine gecmesini sagliyor;
+// kendi renklerimiz styles.css'teki :root[data-theme='light'] blogunda.
+html[data-theme='light'] body {
+  color-scheme: light;
 }

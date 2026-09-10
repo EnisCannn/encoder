@@ -1,4 +1,5 @@
-<div class="shell">
+<!-- Giris yapilmadiginda kabuk cizilmez; login sayfasi tam ekran acilir -->
+<div class="shell" *ngIf="isLoggedIn(); else bare">
   <aside class="sidebar">
     <div class="brand">
       <mat-icon>construction</mat-icon>
@@ -17,9 +18,24 @@
         <span>{{ item.label }}</span>
       </a>
     </nav>
+
+    <div class="user-box">
+      <div class="avatar">{{ currentUser()?.username?.charAt(0)?.toUpperCase() }}</div>
+      <div class="user-text">
+        <span class="user-name">{{ currentUser()?.username }}</span>
+        <span class="user-role">{{ roleLabels[currentUser()?.role || ''] || currentUser()?.role }}</span>
+      </div>
+      <button class="logout" (click)="logout()" matTooltip="Çıkış yap">
+        <mat-icon>logout</mat-icon>
+      </button>
+    </div>
   </aside>
 
   <main class="content">
     <router-outlet></router-outlet>
   </main>
 </div>
+
+<ng-template #bare>
+  <router-outlet></router-outlet>
+</ng-template>

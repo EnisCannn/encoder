@@ -22,6 +22,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCardModule } from '@angular/material/card';
 import { Subscription, timer , forkJoin} from 'rxjs';
 import { switchMap } from 'rxjs/operators';
+import { environment } from '../../environment';
 import { LiveStreamService, LiveStream } from '../../services/live-stream.service';
 import { PresetService } from '../../services/preset.service';
 import { Preset } from '../preset/preset';
@@ -258,7 +259,7 @@ export class LiveStreamComponent implements OnInit, OnDestroy {
 
   watchStream(stream: LiveStream) {
     this.currentStreamName = stream.streamName;
-    this.currentWatchUrl = `http://localhost:8081/api/live/play/${stream.id}/index.m3u8`;
+    this.currentWatchUrl = `${environment.apiBaseUrl}/api/live/play/${stream.id}/index.m3u8`;
 
     const startedAt = stream.streamStartTime || Date.now();
     const endedAt = stream.streamEndTime;
@@ -469,7 +470,7 @@ export class LiveStreamComponent implements OnInit, OnDestroy {
     this.isClipping = false;
     this.showClipPanel = true;
 
-    const streamUrl = `http://localhost:8081/api/live/play/${stream.id}/index.m3u8`;
+    const streamUrl = `${environment.apiBaseUrl}/api/live/play/${stream.id}/index.m3u8`;
 
     setTimeout(() => {
       const startVideo = document.getElementById('clip-video-start') as HTMLVideoElement;

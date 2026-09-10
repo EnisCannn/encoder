@@ -59,6 +59,51 @@
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
 
   --sidebar-w: 236px;
+
+  /* --- Tema icinde degisen ama yukaridaki gruplara girmeyen birkac renk --- */
+  --border-strong: #37424f;   /* buton hover cercevesi */
+  --on-accent: #06121f;       /* vurgu rengi uzerindeki yazi */
+  --tooltip-bg: #05080c;
+  --tooltip-text: #e6edf3;
+}
+
+/* ================= Aydinlik tema =================
+   Sadece renk degiskenleri eziliyor; olcu, kose ve yazi olcegi ortak.
+   data-theme niteligini <html> uzerine ThemeService koyuyor. */
+
+:root[data-theme='light'] {
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --surface-2: #f0f3f6;
+  --surface-3: #e6ebf1;
+  --border: #d0d7de;
+  --border-soft: #e4e8ec;
+  --border-strong: #b6c0ca;
+
+  --text: #1f2328;
+  --text-dim: #59636e;
+  --text-muted: #818b98;
+
+  --accent: #0969da;
+  --accent-hover: #0550ae;
+  --accent-soft: rgba(9, 105, 218, 0.1);
+  --accent-border: rgba(9, 105, 218, 0.4);
+  --on-accent: #ffffff;
+
+  --success: #1a7f37;
+  --warning: #9a6700;
+  --danger: #cf222e;
+  --info: #0969da;
+
+  --success-soft: rgba(26, 127, 55, 0.12);
+  --warning-soft: rgba(154, 103, 0, 0.12);
+  --danger-soft: rgba(207, 34, 46, 0.12);
+
+  --tooltip-bg: #24292f;
+  --tooltip-text: #ffffff;
+
+  --shadow: 0 1px 2px rgba(31, 35, 40, 0.08);
+  --shadow-lg: 0 8px 24px rgba(31, 35, 40, 0.12);
 }
 
 html,
@@ -188,7 +233,7 @@ body {
 .btn:hover {
   background: var(--surface-2);
   color: var(--text);
-  border-color: #37424f;
+  border-color: var(--border-strong);
 }
 
 .btn.on {
@@ -213,7 +258,7 @@ body {
   background: var(--accent);
   border: 1px solid var(--accent);
   border-radius: var(--r-sm);
-  color: #06121f;
+  color: var(--on-accent);
   font-size: var(--fs-base);
   font-weight: 600;
   font-family: inherit;
@@ -243,7 +288,7 @@ body {
   padding: 0 5px;
   border-radius: var(--r-pill);
   background: var(--accent);
-  color: #06121f;
+  color: var(--on-accent);
   font-size: var(--fs-xs);
   font-weight: 700;
 }
@@ -415,8 +460,8 @@ body {
 }
 
 .mat-mdc-tooltip-surface {
-  background: #05080c !important;
-  color: var(--text) !important;
+  background: var(--tooltip-bg) !important;
+  color: var(--tooltip-text) !important;
   font-size: var(--fs-sm) !important;
   border: 1px solid var(--border);
 }

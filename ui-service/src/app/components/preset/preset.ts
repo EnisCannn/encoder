@@ -27,6 +27,7 @@ export interface Preset {
   audioBitrate: number;
   frameRate: number;
   format: string;
+  createdAt?: string;
   /** Kalibrasyon taramasinin urettigi sablon mu? Listede rozetle ayirt ediliyor. */
   calibration?: boolean;
 }
@@ -93,7 +94,10 @@ export class PresetComponent implements OnInit {
   loadPresets() {
     this.presetService.getAllPresets().subscribe({
       next: (data) => {
-        this.dataSource.data = data;
+        // En son olusturulan en ustte; API sirasi rastgeleydi ve yeni sablon
+        // sayfalar arasinda kayboluyordu.
+        this.dataSource.data = [...data].sort((a, b) =>
+          (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
         if (!this.dataSource.sort && this.sort) this.dataSource.sort = this.sort;
         if (!this.dataSource.paginator && this.paginator) {
           this.dataSource.paginator = this.paginator;
@@ -286,12 +290,16 @@ export class PresetComponent implements OnInit {
     if (this.isEditMode && this.newPresetData.id) {
       this.presetService.updatePreset(this.newPresetData.id as any, this.newPresetData).subscribe({
         next: () => { this.dialog.closeAll(); this.loadPresets(); },
-        error: (err) => alert('Backend Hatası!'),
+        // Backend kural ihlallerini metinle aciklar; onu yutup "Backend Hatasi"
+        // demek hatanin sebebini gormeyi imkansiz kiliyordu.
+        error: (err) => alert(err.error?.hata || err.error?.message || 'Şablon kaydedilemedi.'),
       });
     } else {
       this.presetService.createPreset(this.newPresetData).subscribe({
         next: () => { this.dialog.closeAll(); this.loadPresets(); },
-        error: (err) => alert('Backend Hatası!'),
+        // Backend kural ihlallerini metinle aciklar; onu yutup "Backend Hatasi"
+        // demek hatanin sebebini gormeyi imkansiz kiliyordu.
+        error: (err) => alert(err.error?.hata || err.error?.message || 'Şablon kaydedilemedi.'),
       });
     }
   }

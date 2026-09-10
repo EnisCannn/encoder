@@ -1,0 +1,34 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: auth-service
+
+  datasource:
+    # main-service ile ayni Postgres ornegi; auth kendi tablosunu (app_users)
+    # kullaniyor. Ayri veritabani istenirse tek satirlik degisiklik.
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/encoder_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: ${SHOW_SQL:false}
+
+encoder:
+  jwt:
+    # Gateway ile ayni deger olmali; ikisi de bu anahtarla HS256 imzasi kullanir
+    secret: ${JWT_SECRET:gelistirme-ortami-icin-varsayilan-anahtar-degistirin}
+    expiration-seconds: ${JWT_EXPIRATION_SECONDS:86400}
+    issuer: encoder-auth
+  admin:
+    username: ${ENCODER_ADMIN_USERNAME:admin}
+    password: ${ENCODER_ADMIN_PASSWORD:admin123}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}

@@ -29,7 +29,7 @@
     <div class="search">
       <mat-icon>search</mat-icon>
       <input [(ngModel)]="topSearch.inputFileName" (ngModelChange)="applyTopFilters()"
-             placeholder="Video adı ara..." />
+             placeholder="Video ya da çıktı adı ara..." />
     </div>
 
     <button class="btn" [class.on]="showFilters" (click)="toggleFilters()">
@@ -43,6 +43,11 @@
   </div>
 
   <div class="filter-panel" *ngIf="showFilters">
+    <div class="field">
+      <label>Video Adı</label>
+      <input [(ngModel)]="topSearch.inputFileName" (ngModelChange)="applyTopFilters()"
+             placeholder="Video ya da çıktı adı..." />
+    </div>
     <div class="field">
       <label>ID</label>
       <input [(ngModel)]="topSearch.id" (ngModelChange)="applyTopFilters()" placeholder="Ara..." />
