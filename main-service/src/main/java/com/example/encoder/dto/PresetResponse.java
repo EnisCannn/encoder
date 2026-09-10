@@ -4,6 +4,7 @@ import com.example.encoder.entity.enums.AudioCodec;
 import com.example.encoder.entity.enums.Format;
 import com.example.encoder.entity.enums.VideoCodec;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 public record PresetResponse(
@@ -20,5 +21,7 @@ public record PresetResponse(
         BigDecimal frameRate,
         Boolean isActive,
         /** Kalibrasyon taramasinin urettigi gecici sablon mu? Arayuz ayirt etsin diye. */
-        Boolean calibration
+        Boolean calibration,
+        /** Liste en yeniden eskiye siralanabilsin diye. */
+        Instant createdAt
 ) {}

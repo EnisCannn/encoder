@@ -27,7 +27,8 @@ public class EncodingPresetServiceImpl implements EncodingPresetService {
                 entity.getFormat(), entity.getVideoCodec(), entity.getAudioCodec(),
                 entity.getWidth(), entity.getHeight(), entity.getVideoBitrate(),
                 entity.getAudioBitrate(), entity.getFrameRate(), entity.getIsActive(),
-                Boolean.TRUE.equals(entity.getCalibration())
+                Boolean.TRUE.equals(entity.getCalibration()),
+                entity.getCreatedAt()
         );
     }
 

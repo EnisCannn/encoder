@@ -17,7 +17,6 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
-@CrossOrigin(origins = "http://localhost:4200")
 @RestController
 @RequestMapping("/api/live")
 @RequiredArgsConstructor
