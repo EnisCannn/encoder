@@ -25,6 +25,7 @@ import { switchMap } from 'rxjs/operators';
 import { environment } from '../../environment';
 import { LiveStreamService, LiveStream } from '../../services/live-stream.service';
 import { PresetService } from '../../services/preset.service';
+import { AuthService } from '../../services/auth.service';
 import { Preset } from '../preset/preset';
 import Hls from 'hls.js';
 
@@ -99,7 +100,23 @@ export class LiveStreamComponent implements OnInit, OnDestroy {
     private presetService: PresetService,
     public dialog: MatDialog,
     private cdr: ChangeDetectorRef,
+    private auth: AuthService,
   ) {}
+
+  /**
+   * hls.js manifest ve segmentleri kendi XHR'iyla cekiyor; Angular'in
+   * interceptor'i oraya karismiyor. Token eklenmezse gateway 401 donuyor ve
+   * oynatici sessizce siyah kaliyor.
+   */
+  private createHls(config: Partial<Hls['config']> = {}): Hls {
+    return new Hls({
+      ...config,
+      xhrSetup: (xhr) => {
+        const token = this.auth.token;
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      },
+    });
+  }
 
   /**
    * Satirlari kimlige gore esler.
@@ -330,7 +347,7 @@ export class LiveStreamComponent implements OnInit, OnDestroy {
 
   private attachLivePlayer(video: HTMLVideoElement) {
     if (Hls.isSupported()) {
-      const hls = new Hls({ startPosition: -1, liveSyncDurationCount: 3 });
+      const hls = this.createHls({ startPosition: -1, liveSyncDurationCount: 3 });
       this.watchHls = hls;
       hls.loadSource(this.currentWatchUrl);
       hls.attachMedia(video);
@@ -485,7 +502,7 @@ export class LiveStreamComponent implements OnInit, OnDestroy {
         });
 
         if (Hls.isSupported()) {
-          const hls = new Hls();
+          const hls = this.createHls();
           this.clipHlsStart = hls;
           hls.loadSource(streamUrl);
           hls.attachMedia(startVideo);
@@ -507,7 +524,7 @@ export class LiveStreamComponent implements OnInit, OnDestroy {
       // BİTİŞ oynatıcısı: sadece bitiş anını gösterir
       if (endVideo) {
         if (Hls.isSupported()) {
-          const hls = new Hls();
+          const hls = this.createHls();
           this.clipHlsEnd = hls;
           hls.loadSource(streamUrl);
           hls.attachMedia(endVideo);
