@@ -16,6 +16,15 @@ export interface AuthUser {
   role: string;
 }
 
+/** Yonetici panelindeki kullanici satiri. */
+export interface AdminUser {
+  id: string;
+  username: string;
+  role: string;
+  enabled: boolean;
+  createdAt: string;
+}
+
 const TOKEN_KEY = 'encoder.token';
 const USER_KEY = 'encoder.user';
 
@@ -24,6 +33,7 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly apiUrl = `${environment.apiBaseUrl}/api/auth`;
+  private readonly adminUrl = `${this.apiUrl}/admin/users`;
 
   /** Oturum durumu sinyalde; arayuz buna gore aciliyor. */
   private readonly userSignal = signal<AuthUser | null>(this.readStoredUser());
@@ -44,6 +54,34 @@ export class AuthService {
 
   changePassword(currentPassword: string, newPassword: string): Observable<unknown> {
     return this.http.post(`${this.apiUrl}/change-password`, { currentPassword, newPassword });
+  }
+
+  /**
+   * Acilista oturumun sunucuda hala gecerli oldugunu dogrular. Banlanan ya da
+   * silinen kullanicinin token'i suresi dolana kadar gecerli; bu istek 401
+   * dondurunce interceptor oturumu dusuruyor.
+   */
+  verifySession() {
+    if (!this.isLoggedIn()) return;
+    this.http.get<AuthUser>(`${this.apiUrl}/me`).subscribe({ error: () => {} });
+  }
+
+  // --- Yonetici paneli (yalnizca ADMIN; gateway rolu token'dan aliyor) ---
+
+  listUsers(): Observable<AdminUser[]> {
+    return this.http.get<AdminUser[]>(this.adminUrl);
+  }
+
+  adminSetPassword(id: string, newPassword: string): Observable<unknown> {
+    return this.http.put(`${this.adminUrl}/${id}/password`, { newPassword });
+  }
+
+  adminSetEnabled(id: string, enabled: boolean): Observable<AdminUser> {
+    return this.http.put<AdminUser>(`${this.adminUrl}/${id}/enabled`, { enabled });
+  }
+
+  adminDeleteUser(id: string): Observable<unknown> {
+    return this.http.delete(`${this.adminUrl}/${id}`);
   }
 
   logout() {

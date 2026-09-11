@@ -15,8 +15,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -88,19 +86,23 @@ public class AuthService {
         log.info("{} parolasini degistirdi", username);
     }
 
-    @Transactional(readOnly = true)
-    public List<UserResponse> listUsers() {
-        return userRepository.findAll().stream().map(AuthService::toResponse).toList();
-    }
-
+    /**
+     * Arayuz her acilista burayi cagiriyor. Banlanan ya da silinen kullanicinin
+     * elindeki token suresi dolana kadar gecerli kalir (gateway veritabanina
+     * bakmiyor); bu yuzden burada 401 donup oturumu dusuruyoruz.
+     */
     @Transactional(readOnly = true)
     public UserResponse findByUsername(String username) {
-        return userRepository.findByUsername(username)
-                .map(AuthService::toResponse)
-                .orElseThrow(() -> new IllegalArgumentException("Kullanici bulunamadi: " + username));
+        AppUser user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new BadCredentialsException("Hesap bulunamadi"));
+        if (!user.isEnabled()) {
+            throw new BadCredentialsException("Bu hesap devre disi birakilmis");
+        }
+        return toResponse(user);
     }
 
-    private static UserResponse toResponse(AppUser user) {
+    /** AdminUserService de kullaniyor; o yuzden package-private. */
+    static UserResponse toResponse(AppUser user) {
         return new UserResponse(
                 user.getId().toString(),
                 user.getUsername(),

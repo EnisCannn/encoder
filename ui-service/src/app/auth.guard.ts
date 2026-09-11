@@ -19,3 +19,14 @@ export const authGuard: CanActivateFn = (_route, state) => {
 
   return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
 };
+
+/** Yalnizca ADMIN rolu; digerleri ana sayfaya donuyor. authGuard'dan sonra calisir. */
+export const adminGuard: CanActivateFn = () => {
+  const platformId = inject(PLATFORM_ID);
+  if (!isPlatformBrowser(platformId)) return true;
+
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  return auth.isAdmin() ? true : router.createUrlTree(['/presets']);
+};

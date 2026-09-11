@@ -1,0 +1,134 @@
+<div class="page">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Kullanıcılar</h1>
+      <p class="page-sub">
+        {{ dataSource.data.length }} hesap<ng-container *ngIf="bannedCount">, {{ bannedCount }} tanesi banlı</ng-container>
+      </p>
+    </div>
+    <button class="btn" (click)="load()" [disabled]="loading()">
+      <mat-icon>refresh</mat-icon> Yenile
+    </button>
+  </div>
+
+  <div class="filterbar">
+    <div class="search">
+      <mat-icon>search</mat-icon>
+      <input [(ngModel)]="search" (ngModelChange)="applyFilter()" placeholder="Kullanıcı adı ara..." />
+    </div>
+  </div>
+
+  <div class="alert error" *ngIf="error()">
+    <mat-icon>error_outline</mat-icon> {{ error() }}
+  </div>
+  <div class="alert ok" *ngIf="success()">
+    <mat-icon>check_circle</mat-icon> {{ success() }}
+  </div>
+
+  <div class="table-wrap">
+    <mat-progress-bar mode="indeterminate" *ngIf="loading()"></mat-progress-bar>
+    <div class="table-scroll">
+    <table mat-table [dataSource]="dataSource" matSort style="width: 100%;">
+
+      <ng-container matColumnDef="username">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Kullanıcı adı </th>
+        <td mat-cell *matCellDef="let user">
+          <div class="user-cell">
+            <div class="avatar">{{ user.username.charAt(0).toUpperCase() }}</div>
+            <b>{{ user.username }}</b>
+            <span class="tag" *ngIf="isSelf(user)" matTooltip="Şu an bu hesapla giriş yaptınız">Siz</span>
+          </div>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="role">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Rol </th>
+        <td mat-cell *matCellDef="let user"> {{ roleLabels[user.role] || user.role }} </td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header sortActionDescription="Duruma göre sırala"> Durum </th>
+        <td mat-cell *matCellDef="let user">
+          <span class="status" [class.banned]="!user.enabled">
+            <mat-icon>{{ user.enabled ? 'check_circle' : 'block' }}</mat-icon>
+            {{ user.enabled ? 'Aktif' : 'Banlı' }}
+          </span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="createdAt">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header> Kayıt tarihi </th>
+        <td mat-cell *matCellDef="let user" style="color: var(--text-muted);">
+          {{ user.createdAt | date: 'dd.MM.yyyy HH:mm' }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef style="text-align: right; width: 56px;"></th>
+        <td mat-cell *matCellDef="let user" style="text-align: right;">
+          <button mat-icon-button class="rowmenu" [matMenuTriggerFor]="rowMenu" matTooltip="İşlemler">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #rowMenu="matMenu">
+            <button mat-menu-item (click)="openPasswordDialog(user)">
+              <mat-icon>key</mat-icon> <span>Parolayı sıfırla</span>
+            </button>
+            <!-- Kendi hesabini banlamak/silmek sunucuda da engelli; burada
+                 dugme kapali ki kullanici 403 ile karsilasmasin -->
+            <button mat-menu-item (click)="toggleBan(user)" [disabled]="isSelf(user)">
+              <mat-icon>{{ user.enabled ? 'block' : 'lock_open' }}</mat-icon>
+              <span>{{ user.enabled ? 'Banla' : 'Banı kaldır' }}</span>
+            </button>
+            <button mat-menu-item (click)="deleteUser(user)" [disabled]="isSelf(user)" style="color: var(--danger);">
+              <mat-icon style="color: var(--danger);">delete</mat-icon> <span>Sil</span>
+            </button>
+          </mat-menu>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.row-banned]="!row.enabled"></tr>
+    </table>
+    </div>
+
+    <div class="empty" *ngIf="!loading() && dataSource.filteredData.length === 0">
+      <mat-icon>manage_accounts</mat-icon>
+      <p *ngIf="dataSource.data.length === 0">Henüz kullanıcı yok.</p>
+      <p *ngIf="dataSource.data.length > 0">Bu aramayla eşleşen kullanıcı yok.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Parola sifirlama: yonetici mevcut parolayi bilmek zorunda degil -->
+<ng-template #passwordDialog>
+  <form class="pw-dialog" (ngSubmit)="savePassword()">
+    <h2 mat-dialog-title>Parolayı sıfırla</h2>
+    <mat-dialog-content>
+      <p class="dialog-sub">
+        <b>{{ target?.username }}</b> için yeni parola belirleyin. Kullanıcı bu parolayla giriş yapıp
+        Ayarlar'dan değiştirebilir.
+      </p>
+
+      <label class="field">
+        <span>Yeni parola</span>
+        <input type="password" name="newPassword" autocomplete="new-password"
+               [(ngModel)]="newPassword" [disabled]="dialogBusy()" cdkFocusInitial />
+      </label>
+
+      <label class="field">
+        <span>Yeni parola (tekrar)</span>
+        <input type="password" name="newPasswordRepeat" autocomplete="new-password"
+               [(ngModel)]="newPasswordRepeat" [disabled]="dialogBusy()" />
+      </label>
+
+      <div class="alert error" *ngIf="dialogError()">
+        <mat-icon>error_outline</mat-icon> {{ dialogError() }}
+      </div>
+      <mat-progress-bar mode="indeterminate" *ngIf="dialogBusy()"></mat-progress-bar>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button type="button" class="btn" mat-dialog-close [disabled]="dialogBusy()">Vazgeç</button>
+      <button type="submit" class="btn-primary" [disabled]="dialogBusy()">Kaydet</button>
+    </mat-dialog-actions>
+  </form>
+</ng-template>

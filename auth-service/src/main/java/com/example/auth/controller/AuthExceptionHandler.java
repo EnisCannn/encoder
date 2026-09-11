@@ -1,6 +1,7 @@
 package com.example.auth.controller;
 
 import com.example.auth.service.AuthService;
+import com.example.auth.service.ForbiddenException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -17,6 +18,11 @@ public class AuthExceptionHandler {
     @ExceptionHandler(AuthService.BadCredentialsException.class)
     public ResponseEntity<Map<String, Object>> badCredentials(AuthService.BadCredentialsException ex) {
         return build(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> forbidden(ForbiddenException ex) {
+        return build(HttpStatus.FORBIDDEN, ex.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

@@ -12,8 +12,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -50,10 +48,5 @@ public class AuthController {
             @Valid @RequestBody ChangePasswordRequest request) {
         authService.changePassword(username, request);
         return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping("/users")
-    public ResponseEntity<List<UserResponse>> users() {
-        return ResponseEntity.ok(authService.listUsers());
     }
 }

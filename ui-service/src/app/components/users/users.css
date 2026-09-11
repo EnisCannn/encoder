@@ -1,0 +1,153 @@
+/* Sayfa kalibi, .btn, .filterbar, .table-wrap, .rowmenu ve .empty global
+   styles.css'ten geliyor; burada yalnizca bu sayfaya ozel parcalar var. */
+
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.user-cell .avatar {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.user-cell b {
+  white-space: nowrap;
+}
+
+/* "Siz" rozeti: preset sayfasindaki "oto" rozetiyle ayni gorunum. uppercase
+   yok: CSS "siz"i "SIZ" yapiyor, Turkce noktali I'yi bilmiyor. */
+.tag {
+  flex-shrink: 0;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  padding: 1px 7px;
+  line-height: 1.5;
+}
+
+/* --- Durum rozeti --- */
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.status .mat-icon {
+  font-size: 15px;
+  width: 15px;
+  height: 15px;
+}
+
+.status.banned {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.row-banned .mat-mdc-cell {
+  opacity: 0.6;
+}
+
+.row-banned .mat-mdc-cell:last-child {
+  opacity: 1;
+}
+
+/* --- Uyarilar --- */
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s3);
+  margin-bottom: var(--s4);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+}
+
+.alert .mat-icon {
+  font-size: 17px;
+  width: 17px;
+  height: 17px;
+}
+
+.alert.error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.alert.ok {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+/* --- Parola diyalogu --- */
+
+.pw-dialog mat-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding-top: var(--s2);
+}
+
+.pw-dialog .alert {
+  margin-bottom: 0;
+}
+
+.dialog-sub {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.field span {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.field input {
+  height: 34px;
+  padding: 0 var(--s3);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.field input:focus {
+  border-color: var(--accent-border);
+}
+
+mat-dialog-actions {
+  gap: var(--s2);
+}
