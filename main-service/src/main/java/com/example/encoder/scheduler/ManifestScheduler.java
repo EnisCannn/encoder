@@ -1,6 +1,7 @@
 package com.example.encoder.scheduler;
 
 import com.example.encoder.entity.JobStatus;
+import com.example.encoder.entity.enums.Format;
 import com.example.encoder.repository.EncodingJobRepository;
 import com.example.encoder.service.HlsPackagerService;
 import com.example.encoder.service.SmilGeneratorService;
@@ -61,7 +62,7 @@ public class ManifestScheduler {
                 }
             }
 
-            if (!hlsEnabled) {
+            if (!hlsWanted(batchId)) {
                 continue;
             }
 
@@ -77,5 +78,24 @@ public class ManifestScheduler {
                 }
             }
         }
+    }
+
+    /**
+     * Bu paket icin HLS uretilsin mi?
+     *
+     * Onceden yalnizca global encoder.manifest.hls-enabled ayarina bakiliyordu;
+     * sablonda Format.HLS secmenin hicbir karsiligi yoktu. Artik pakette HLS
+     * formatli en az bir sablon varsa o paket icin HLS uretiliyor. Global ayar
+     * hala butun paketleri acan bir anahtar olarak duruyor.
+     *
+     * Tekli isler icin bu yol calismıyor: HLS burada varyantlari tek bir master
+     * playlist altinda toplamak demek, tek bir cikti icin karsiligi yok.
+     */
+    private boolean hlsWanted(UUID batchId) {
+        if (hlsEnabled) {
+            return true;
+        }
+        return jobRepository.findByBatchIdOrderByCreatedAtAsc(batchId).stream()
+                .anyMatch(job -> job.getPreset() != null && job.getPreset().getFormat() == Format.HLS);
     }
 }

@@ -1,0 +1,81 @@
+<div class="page">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Ayarlar</h1>
+      <p class="page-sub">Hesap ve görünüm tercihleri</p>
+    </div>
+  </div>
+
+  <!-- Hesap ozeti -->
+  <div class="card account">
+    <div class="avatar">{{ currentUser()?.username?.charAt(0)?.toUpperCase() }}</div>
+    <div class="account-text">
+      <span class="account-name">{{ currentUser()?.username }}</span>
+      <span class="account-role">{{ roleLabels[currentUser()?.role || ''] || currentUser()?.role }}</span>
+    </div>
+    <button class="btn danger" (click)="logout()">
+      <mat-icon>logout</mat-icon> Oturumu kapat
+    </button>
+  </div>
+
+  <!-- Gorunum -->
+  <div class="card">
+    <h2 class="section-title">Görünüm</h2>
+    <p class="section-sub">Tercih bu tarayıcıda saklanır.</p>
+
+    <div class="theme-options">
+      <button class="theme-option" [class.on]="currentTheme() === 'dark'"
+              (click)="setTheme('dark')">
+        <mat-icon>dark_mode</mat-icon>
+        <span>Koyu</span>
+        <mat-icon class="tick" *ngIf="currentTheme() === 'dark'">check_circle</mat-icon>
+      </button>
+
+      <button class="theme-option" [class.on]="currentTheme() === 'light'"
+              (click)="setTheme('light')">
+        <mat-icon>light_mode</mat-icon>
+        <span>Aydınlık</span>
+        <mat-icon class="tick" *ngIf="currentTheme() === 'light'">check_circle</mat-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- Parola -->
+  <div class="card">
+    <h2 class="section-title">Parola değiştir</h2>
+    <p class="section-sub">Yeni parola en az 6 karakter olmalı.</p>
+
+    <form class="pw-form" (ngSubmit)="changePassword()">
+      <label class="field">
+        <span>Mevcut parola</span>
+        <input type="password" name="currentPassword" autocomplete="current-password"
+               [(ngModel)]="currentPassword" [disabled]="busy()" />
+      </label>
+
+      <label class="field">
+        <span>Yeni parola</span>
+        <input type="password" name="newPassword" autocomplete="new-password"
+               [(ngModel)]="newPassword" [disabled]="busy()" />
+      </label>
+
+      <label class="field">
+        <span>Yeni parola (tekrar)</span>
+        <input type="password" name="newPasswordRepeat" autocomplete="new-password"
+               [(ngModel)]="newPasswordRepeat" [disabled]="busy()" />
+      </label>
+
+      <div class="alert error" *ngIf="error()">
+        <mat-icon>error_outline</mat-icon> {{ error() }}
+      </div>
+      <div class="alert ok" *ngIf="success()">
+        <mat-icon>check_circle</mat-icon> {{ success() }}
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="btn-primary" [disabled]="busy()">Parolayı güncelle</button>
+      </div>
+
+      <mat-progress-bar mode="indeterminate" *ngIf="busy()"></mat-progress-bar>
+    </form>
+  </div>
+</div>

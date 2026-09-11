@@ -13,6 +13,19 @@
       rel="stylesheet"
     />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+
+    <!-- Tema Angular acilmadan once yaziliyor. Bunu bilesen icinde yapmak iki
+         soruna yol aciyordu: acilista koyu tema bir an gorunup aydinliga
+         donuyordu ve tercih bazi sayfa yuklemelerinde hic uygulanmiyordu. -->
+    <script>
+      try {
+        if (localStorage.getItem("encoder.theme") === "light") {
+          document.documentElement.setAttribute("data-theme", "light");
+        }
+      } catch (e) {
+        /* gizli sekmede localStorage kapali olabilir; koyu temayla devam */
+      }
+    </script>
   </head>
   <body>
     <app-root></app-root>

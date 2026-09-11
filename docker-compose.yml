@@ -12,8 +12,11 @@ services:
   main-service:
     build: ./main-service
     container_name: main-service
-    ports:
-      - "8081:8081"
+    # Dis dunyaya kapali: tek giris noktasi api-gateway (8090). Gateway ile
+    # encoder-worker ayni docker agindan 8081'e erisiyor, host'a acilmasina
+    # gerek yok.
+    expose:
+      - "8081"
     environment:
       - DB_URL=jdbc:postgresql://host.docker.internal:5432/encoder_db
       - DB_USERNAME=${DB_USERNAME:-postgres}
@@ -42,6 +45,38 @@ services:
     depends_on:
       - eureka-server
       - main-service
+    networks:
+      - encoder-net
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    environment:
+      - DB_URL=jdbc:postgresql://host.docker.internal:5432/encoder_db
+      - DB_USERNAME=${DB_USERNAME:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD .env dosyasinda tanimli olmali}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - JWT_SECRET=${JWT_SECRET:-gelistirme-ortami-icin-varsayilan-anahtar-degistirin}
+      - ENCODER_ADMIN_PASSWORD=${ENCODER_ADMIN_PASSWORD:-admin123}
+    depends_on:
+      - eureka-server
+    networks:
+      - encoder-net
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      # 8080 EDB'nin Apache'si tarafindan kullaniliyor, gateway 8090'da
+      - "8090:8090"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      # auth-service ile ayni imzalama anahtari
+      - JWT_SECRET=${JWT_SECRET:-gelistirme-ortami-icin-varsayilan-anahtar-degistirin}
+    depends_on:
+      - eureka-server
+      - main-service
+      - auth-service
     networks:
       - encoder-net
 

@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { environment } from '../environment';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
@@ -15,7 +16,7 @@ export interface LiveStream {
   providedIn: 'root',
 })
 export class LiveStreamService {
-  private apiUrl = 'http://localhost:8081/api/live';
+  private apiUrl = `${environment.apiBaseUrl}/api/live`;
 
   constructor(private http: HttpClient) {}
 

@@ -3,15 +3,17 @@ import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 // HTTP İstekleri için gereken kütüphane eklendi
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { MatPaginatorIntl } from '@angular/material/paginator';
 import { turkishPaginatorIntl } from './paginator-tr';
+import { authInterceptor } from './auth.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
     provideAnimationsAsync(),
-    provideHttpClient(), // API ile konuşma yetkisi burada veriliyor
+    // Interceptor her istege JWT'yi ekliyor, 401'de oturumu dusuruyor
+    provideHttpClient(withInterceptors([authInterceptor])),
     // Sayfalayicinin metinleri Turkce olsun
     { provide: MatPaginatorIntl, useFactory: turkishPaginatorIntl },
   ],

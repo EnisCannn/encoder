@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { environment } from '../environment';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Preset } from '../components/preset/preset';
@@ -24,7 +25,7 @@ export interface EncodeSetRequest {
   providedIn: 'root',
 })
 export class EncodeSetService {
-  private apiUrl = 'http://localhost:8081/api/encode-sets';
+  private apiUrl = `${environment.apiBaseUrl}/api/encode-sets`;
 
   constructor(private http: HttpClient) {}
 

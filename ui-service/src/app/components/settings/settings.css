@@ -1,0 +1,168 @@
+/* Sayfa kalibi, kart, .btn ve .btn.primary global styles.css'ten geliyor;
+   burada yalnizca bu sayfaya ozel parcalar var. */
+
+.section-title {
+  margin: 0 0 var(--s1);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.section-sub {
+  margin: 0 0 var(--s4);
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+/* --- Hesap ozeti --- */
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+}
+
+.account .avatar {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.account-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+
+.account-name {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.account-role {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* .btn.danger hover rengi styles.css'te tanimli; burada yalnizca yerlesim */
+.account .btn.danger {
+  margin-left: auto;
+  color: var(--danger);
+}
+
+/* --- Tema secimi --- */
+
+.theme-options {
+  display: flex;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 160px;
+  padding: var(--s3) var(--s4);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-dim);
+  font-size: var(--fs-base);
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.theme-option:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.theme-option.on {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.theme-option .tick {
+  margin-left: auto;
+  font-size: 17px;
+  width: 17px;
+  height: 17px;
+}
+
+/* --- Parola formu --- */
+
+.pw-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  max-width: 380px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.field span {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+}
+
+.field input {
+  height: 34px;
+  padding: 0 var(--s3);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: var(--fs-base);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.field input:focus {
+  border-color: var(--accent-border);
+}
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s3);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+}
+
+.alert .mat-icon {
+  font-size: 17px;
+  width: 17px;
+  height: 17px;
+}
+
+.alert.error {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.alert.ok {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.actions {
+  display: flex;
+}

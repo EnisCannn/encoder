@@ -66,9 +66,18 @@ public class FFmpegEncoderService implements EncoderService {
         if (preset.getVideoBitrate() != null) {
             String bitrate = preset.getVideoBitrate() + "k";
             command.add("-b:v"); command.add(bitrate);
-            // Özelliklerde birebir aynı görünmesi için maksimum ve minimum oranları sabitliyoruz
-            command.add("-minrate"); command.add(bitrate);
-            command.add("-maxrate"); command.add(bitrate);
+
+            // SVT-AV1 minrate/maxrate kabul etmiyor: "CBR Rate control is currently
+            // not supported ... use VBR mode" deyip hata veriyor. Bu yuzden AV1'de
+            // yalnizca hedef bitrate veriliyor; cikti CBR degil VBR oluyor.
+            // Sonuc: AV1 ciktilarinin bitrate'i H264/H265 kadar birebir sabit degil.
+            boolean cbrDestekleniyor = preset.getVideoCodec() == null
+                    || !"AV1".equalsIgnoreCase(preset.getVideoCodec().name());
+            if (cbrDestekleniyor) {
+                // Özelliklerde birebir aynı görünmesi için maksimum ve minimum oranları sabitliyoruz
+                command.add("-minrate"); command.add(bitrate);
+                command.add("-maxrate"); command.add(bitrate);
+            }
             command.add("-bufsize"); command.add((preset.getVideoBitrate() * 2) + "k");
         }
 

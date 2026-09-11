@@ -4,7 +4,6 @@ import com.example.encoder.dto.CreatePresetRequest;
 import com.example.encoder.dto.PresetResponse;
 import com.example.encoder.entity.EncodingPreset;
 import com.example.encoder.entity.enums.Format;
-import com.example.encoder.entity.enums.VideoCodec;
 import com.example.encoder.repository.EncodingPresetRepository;
 import com.example.encoder.service.EncodingPresetService;
 import lombok.RequiredArgsConstructor;
@@ -37,10 +36,6 @@ public class EncodingPresetServiceImpl implements EncodingPresetService {
         boolean nameExists = repository.existsByName(request.name());
         if (nameExists) {
             throw new RuntimeException("FAZ 4 KURAL İHLALİ: Bu isimde bir preset zaten var!");
-        }
-
-        if (request.format() == Format.MP4 && request.videoCodec() != VideoCodec.H264) {
-            throw new RuntimeException("FAZ 4 KURAL İHLALİ: MP4 formatı projemizde şimdilik sadece H264 codec'ini destekler!");
         }
 
         if (request.audioBitrate() != null && (request.audioBitrate() < 64 || request.audioBitrate() > 320)) {
@@ -76,9 +71,6 @@ public class EncodingPresetServiceImpl implements EncodingPresetService {
         if (!entity.getName().equals(request.name())) {
             validatePresetBusinessRules(request, id);
         } else {
-            if (request.format() == Format.MP4 && request.videoCodec() != VideoCodec.H264) {
-                throw new RuntimeException("FAZ 4 KURAL İHLALİ: MP4 formatı şimdilik sadece H264 destekler!");
-            }
             if (request.audioBitrate() != null && (request.audioBitrate() < 64 || request.audioBitrate() > 320)) {
                 throw new RuntimeException("FAZ 4 KURAL İHLALİ: Audio bitrate 64 ile 320 kbps arasında olmalıdır!");
             }

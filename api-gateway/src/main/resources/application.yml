@@ -1,0 +1,75 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            # Sirasi onemli: /api/auth/** daha genel olan /api/** kuralindan
+            # once denenmeli, yoksa login istegi de main-service'e gider.
+            - id: auth-service
+              uri: lb://auth-service
+              order: 0
+              predicates:
+                - Path=/api/auth/**
+
+            - id: main-service
+              uri: lb://main-service
+              order: 1
+              predicates:
+                - Path=/api/**
+
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowedOrigins:
+                  - http://localhost:4200
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowedHeaders: '*'
+                allowCredentials: true
+                maxAge: 3600
+
+  # Video yuklemeleri gateway uzerinden akar; buyuk govdeler bellege alinmasin
+  codec:
+    max-in-memory-size: 16MB
+
+encoder:
+  jwt:
+    # auth-service ile ayni deger olmali; ikisi de bu anahtarla HS256 kullanir
+    secret: ${JWT_SECRET:gelistirme-ortami-icin-varsayilan-anahtar-degistirin}
+    public-paths:
+      - /api/auth/login
+      - /api/auth/register
+      # <video src> Authorization basligi gonderemez, bu yuzden oynatma ucu
+      # acik kalmak zorunda. Korunmasi gerekirse imzali gecici URL gerekir.
+      - /api/videos/play/**
+      - /actuator/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,gateway
+  endpoint:
+    gateway:
+      access: unrestricted
+
+logging:
+  level:
+    org.springframework.cloud.gateway: ${GATEWAY_LOG_LEVEL:INFO}

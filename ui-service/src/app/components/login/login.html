@@ -1,0 +1,54 @@
+<div class="login-page">
+  <div class="login-card">
+    <div class="brand">
+      <mat-icon>construction</mat-icon>
+      <div class="brand-text">
+        <span class="brand-name">Video Encoder</span>
+        <span class="brand-sub">Yönetim Paneli</span>
+      </div>
+    </div>
+
+    <h1>{{ mode() === 'login' ? 'Giriş yap' : 'Hesap oluştur' }}</h1>
+    <p class="lead">
+      {{ mode() === 'login'
+          ? 'Devam etmek için hesabınızla giriş yapın.'
+          : 'Yeni bir kullanıcı hesabı oluşturun.' }}
+    </p>
+
+    <form (ngSubmit)="submit()">
+      <label class="field">
+        <span>Kullanıcı adı</span>
+        <input name="username" autocomplete="username" [(ngModel)]="username"
+               placeholder="kullanıcı adı" [disabled]="busy()" />
+      </label>
+
+      <label class="field">
+        <span>Parola</span>
+        <input name="password" type="password"
+               [attr.autocomplete]="mode() === 'login' ? 'current-password' : 'new-password'"
+               [(ngModel)]="password" placeholder="••••••••" [disabled]="busy()" />
+      </label>
+
+      <div class="alert error" *ngIf="error()">
+        <mat-icon>error_outline</mat-icon> {{ error() }}
+      </div>
+      <div class="alert info" *ngIf="info()">
+        <mat-icon>check_circle</mat-icon> {{ info() }}
+      </div>
+
+      <button type="submit" class="primary" [disabled]="busy()">
+        {{ mode() === 'login' ? 'Giriş yap' : 'Kayıt ol' }}
+      </button>
+
+      <mat-progress-bar mode="indeterminate" *ngIf="busy()"></mat-progress-bar>
+    </form>
+
+    <div class="switch">
+      <span *ngIf="mode() === 'login'">Hesabınız yok mu?</span>
+      <span *ngIf="mode() === 'register'">Zaten hesabınız var mı?</span>
+      <button type="button" (click)="toggleMode()">
+        {{ mode() === 'login' ? 'Kayıt olun' : 'Giriş yapın' }}
+      </button>
+    </div>
+  </div>
+</div>

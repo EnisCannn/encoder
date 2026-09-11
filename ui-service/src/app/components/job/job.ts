@@ -32,6 +32,7 @@ import { EncodeSet, EncodeSetService } from '../../services/encode-set.service';
 import { Preset } from '../preset/preset';
 import { Subscription, forkJoin, timer } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
+import { environment } from '../../environment';
 
 export interface Job {
   id: string;
@@ -75,6 +76,7 @@ export interface JobRow {
   qualityLabel: string;   // "1080p, 720p, 480p"
   measuredCount: number;  // VMAF skoru gelmis is sayisi
   averageVmaf: number | null;  // olculenlerin ortalamasi
+  createdAt: string;      // gruptaki en yeni isin zamani; siralama bunun uzerinden
 }
 
 @Component({
@@ -217,9 +219,12 @@ export class JobComponent implements OnInit, OnDestroy {
       const matchId =
         row.key.toLowerCase().includes(idTerm) ||
         row.jobs.some((j) => j.id.toLowerCase().includes(idTerm));
-      const matchName = row.inputFileName
-        .toLowerCase()
-        .includes((search.inputFileName || '').toLowerCase());
+      // Girdi adinin yani sira uretilen cikti adlarinda da arama yapilir;
+      // paket satirinda her kalite icin ayri bir cikti oldugundan hepsine bakilir.
+      const nameTerm = (search.inputFileName || '').toLowerCase();
+      const matchName =
+        row.inputFileName.toLowerCase().includes(nameTerm) ||
+        row.jobs.some((j) => (j.outputFileName ?? '').toLowerCase().includes(nameTerm));
       const presetTerm = (search.presetName || '').toLowerCase();
       const matchPreset =
         row.presetLabel.toLowerCase().includes(presetTerm) ||
@@ -242,6 +247,8 @@ export class JobComponent implements OnInit, OnDestroy {
           return row.status;
         case 'progress':
           return row.progress;
+        case 'createdAt':
+          return row.createdAt;
         case 'vmaf':
           // Olculmemis satirlar -1 ile en alta duser; 0 verilseydi gercekten
           // cok dusuk skor almis satirlarla karisirdi.
@@ -374,11 +381,19 @@ export class JobComponent implements OnInit, OnDestroy {
         averageVmaf: measured.length
           ? measured.reduce((sum, j) => sum + (j.vmafScore ?? 0), 0) / measured.length
           : null,
+        // Paket satirinda gruptaki en yeni is; paket listede tek satir oldugu
+        // icin en son eklenen kaliteye gore yukari cikmali.
+        createdAt: jobs.reduce(
+          (en, j) => ((j.createdAt ?? '') > en ? (j.createdAt ?? '') : en), ''),
       });
     });
 
-    // Poll her 3 saniyede geldigi icin satir sirasi sabit kalmali
-    rows.sort((a, b) => a.key.localeCompare(b.key));
+    // En son eklenen en ustte. Onceden UUID'ye gore alfabetik siralaniyordu;
+    // bu rastgele bir sira demekti ve yeni acilan isler sayfalar arasina
+    // dagiliyordu. Zaman esitse anahtara duserek sirayi kararli tutuyoruz:
+    // liste 3 saniyede bir yenilendigi icin satirlar zipzip yer degistirmemeli.
+    rows.sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt) || a.key.localeCompare(b.key));
     return rows;
   }
 
@@ -723,7 +738,7 @@ export class JobComponent implements OnInit, OnDestroy {
   private outputUrl(job: Job): string {
     const targetFileName = job.outputFileName ? job.outputFileName : job.inputFileName;
     const encoded = targetFileName.split('/').map(encodeURIComponent).join('/');
-    return `http://localhost:8081/api/videos/play/${encoded}`;
+    return `${environment.apiBaseUrl}/api/videos/play/${encoded}`;
   }
 
   private outputBaseName(job: Job): string {
@@ -736,7 +751,7 @@ export class JobComponent implements OnInit, OnDestroy {
   private subtitleUrl(job: Job): string {
     if (!job.subtitleVttFileName) return '';
     const encoded = job.subtitleVttFileName.split('/').map(encodeURIComponent).join('/');
-    return `http://localhost:8081/api/videos/play/${encoded}`;
+    return `${environment.apiBaseUrl}/api/videos/play/${encoded}`;
   }
 
   hasSelectableSubtitle(job: Job): boolean {
@@ -845,7 +860,7 @@ export class JobComponent implements OnInit, OnDestroy {
   // SMIL'deki yollar dosyaya göre göreli; paket klasörüyle birleştiriyoruz
   private smilFileUrl(relative: string): string {
     const encoded = `${this.smilBatchId}/${relative}`.split('/').map(encodeURIComponent).join('/');
-    return `http://localhost:8081/api/videos/play/${encoded}`;
+    return `${environment.apiBaseUrl}/api/videos/play/${encoded}`;
   }
 
   get smilVideoUrl(): string {
