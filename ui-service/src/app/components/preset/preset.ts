@@ -182,10 +182,15 @@ export class PresetComponent implements OnInit {
     this.dataSource.filter = JSON.stringify(this.topSearch);
   }
 
+  /**
+   * Tur dahil her filtreyi bosaltir ("Tumu"). Acilistaki 'normal' varsayilani
+   * burada korunmuyor: rozette gorunen bir filtreyi Temizle kaldirmiyorsa
+   * kullanici dugmenin bozuk oldugunu saniyor.
+   */
   clearTopFilters() {
     this.topSearch = {
       id: '', name: '', format: '', videoCodec: '', resolution: '',
-      videoBitrate: '', audioCodec: '', audioBitrate: '', frameRate: '', tur: 'normal'
+      videoBitrate: '', audioCodec: '', audioBitrate: '', frameRate: '', tur: ''
     };
     this.applyTopFilters();
   }
