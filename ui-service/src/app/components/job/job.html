@@ -433,15 +433,29 @@
 
     <mat-form-field *ngIf="jobMode === 'single'" appearance="outline" style="width: 100%; margin-top: 5px;">
       <mat-label>Uygulanacak Şablon <span style="color: red;">*</span></mat-label>
-      <mat-select [(ngModel)]="selectedPresetId">
-        <mat-option *ngFor="let p of presets" [value]="p.id">{{ p.name }} ({{ p.format }} - {{ p.width }}x{{ p.height }})</mat-option>
+      <mat-select #presetSelect [(ngModel)]="selectedPresetId" (openedChange)="onPresetPanel($event, presetSearchInput)">
+        <div class="select-search">
+          <mat-icon>search</mat-icon>
+          <input #presetSearchInput [(ngModel)]="presetSearch" [ngModelOptions]="{ standalone: true }"
+                 placeholder="Şablon ara: ad, 1080p, H264, 5000..." autocomplete="off"
+                 (keydown)="stopSelectKeys($event, presetSelect)" />
+        </div>
+        <mat-option *ngFor="let p of filteredPresets" [value]="p.id">{{ p.name }} ({{ p.format }} - {{ p.width }}x{{ p.height }})</mat-option>
+        <div *ngIf="filteredPresets.length === 0" class="select-search-empty">Eşleşen şablon yok</div>
       </mat-select>
     </mat-form-field>
 
     <mat-form-field *ngIf="jobMode === 'set'" appearance="outline" style="width: 100%; margin-top: 5px;">
       <mat-label>Uygulanacak Paket <span style="color: red;">*</span></mat-label>
-      <mat-select [(ngModel)]="selectedEncodeSetId">
-        <mat-option *ngFor="let s of encodeSets" [value]="s.id">{{ s.name }} ({{ s.presets.length }} şablon)</mat-option>
+      <mat-select #setSelect [(ngModel)]="selectedEncodeSetId" (openedChange)="onEncodeSetPanel($event, setSearchInput)">
+        <div class="select-search">
+          <mat-icon>search</mat-icon>
+          <input #setSearchInput [(ngModel)]="encodeSetSearch" [ngModelOptions]="{ standalone: true }"
+                 placeholder="Paket ara: ad ya da içindeki şablon" autocomplete="off"
+                 (keydown)="stopSelectKeys($event, setSelect)" />
+        </div>
+        <mat-option *ngFor="let s of filteredEncodeSets" [value]="s.id">{{ s.name }} ({{ s.presets.length }} şablon)</mat-option>
+        <div *ngIf="encodeSets.length > 0 && filteredEncodeSets.length === 0" class="select-search-empty">Eşleşen paket yok</div>
       </mat-select>
       <mat-hint *ngIf="encodeSets.length === 0">Henüz paket yok — "Paketler" sekmesinden oluşturabilirsiniz.</mat-hint>
     </mat-form-field>

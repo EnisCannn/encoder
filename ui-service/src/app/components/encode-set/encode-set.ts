@@ -19,6 +19,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { EncodeSet, EncodeSetService } from '../../services/encode-set.service';
 import { PresetService } from '../../services/preset.service';
 import { Preset } from '../preset/preset';
+import { focusSearch, matchesSearch, presetSearchText, stopSelectKeys } from '../../select-search';
 
 @Component({
   selector: 'app-encode-set',
@@ -64,6 +65,28 @@ export class EncodeSetComponent implements OnInit {
   };
 
   search = { name: '', preset: '' };
+
+  /** Paket formundaki sablon seciminin arama kutusu. */
+  presetSearch = '';
+  readonly stopSelectKeys = stopSelectKeys;
+
+  /**
+   * Arama kutusuna gore suzulmus sablonlar. Secili olanlar aramaya uymasa da
+   * listede kalir: mat-select coklu secimde listeden kalkan secenegi bir
+   * sonraki tiklamada secimden de sessizce dusuruyor.
+   */
+  get filteredPresets(): Preset[] {
+    return this.availablePresets.filter(
+      (p) =>
+        this.formData.presetIds.includes(p.id!) ||
+        matchesSearch(presetSearchText(p), this.presetSearch),
+    );
+  }
+
+  onPresetPanel(opened: boolean, input: HTMLInputElement) {
+    if (opened) focusSearch(input);
+    else this.presetSearch = '';
+  }
 
   constructor(
     public dialog: MatDialog,

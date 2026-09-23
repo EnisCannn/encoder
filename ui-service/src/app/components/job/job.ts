@@ -30,6 +30,7 @@ import { JobService } from '../../services/job.service';
 import { PresetService } from '../../services/preset.service';
 import { EncodeSet, EncodeSetService } from '../../services/encode-set.service';
 import { Preset } from '../preset/preset';
+import { focusSearch, matchesSearch, presetSearchText, stopSelectKeys } from '../../select-search';
 import { Subscription, forkJoin, timer } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { environment } from '../../environment';
@@ -647,6 +648,40 @@ export class JobComponent implements OnInit, OnDestroy {
 
   get isTargetSelected(): boolean {
     return this.jobMode === 'single' ? !!this.selectedPresetId : !!this.selectedEncodeSetId;
+  }
+
+  // ---------- Sablon / paket seciminde arama ----------
+  presetSearch = '';
+  encodeSetSearch = '';
+  readonly stopSelectKeys = stopSelectKeys;
+
+  // Secili olan aramaya uymasa da listede kalir; yoksa mat-select secimi
+  // modelde tutup kutuda bos gosteriyor.
+  get filteredPresets(): Preset[] {
+    return this.presets.filter(
+      (p) => p.id === this.selectedPresetId || matchesSearch(presetSearchText(p), this.presetSearch),
+    );
+  }
+
+  get filteredEncodeSets(): EncodeSet[] {
+    return this.encodeSets.filter(
+      (s) =>
+        s.id === this.selectedEncodeSetId ||
+        matchesSearch(
+          [s.name, s.description ?? '', ...(s.presets || []).map((p) => p.name)].join(' '),
+          this.encodeSetSearch,
+        ),
+    );
+  }
+
+  onPresetPanel(opened: boolean, input: HTMLInputElement) {
+    if (opened) focusSearch(input);
+    else this.presetSearch = '';
+  }
+
+  onEncodeSetPanel(opened: boolean, input: HTMLInputElement) {
+    if (opened) focusSearch(input);
+    else this.encodeSetSearch = '';
   }
 
   onFileSelected(event: any) {

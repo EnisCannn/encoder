@@ -129,11 +129,21 @@
 
       <mat-form-field appearance="outline">
         <mat-label>Şablonlar (çoklu seçim)</mat-label>
-        <mat-select [(ngModel)]="formData.presetIds" name="presetIds" multiple>
-          @for (p of availablePresets; track p.id) {
+        <mat-select #presetSelect [(ngModel)]="formData.presetIds" name="presetIds" multiple
+                    (openedChange)="onPresetPanel($event, presetSearchInput)">
+          <div class="select-search">
+            <mat-icon>search</mat-icon>
+            <input #presetSearchInput [(ngModel)]="presetSearch" [ngModelOptions]="{ standalone: true }"
+                   placeholder="Şablon ara: ad, 1080p, H264, 5000..." autocomplete="off"
+                   (keydown)="stopSelectKeys($event, presetSelect)" />
+          </div>
+          @for (p of filteredPresets; track p.id) {
             <mat-option [value]="p.id">
               {{ p.name }} — {{ p.width }}x{{ p.height }} • {{ p.videoBitrate }} kbps
             </mat-option>
+          }
+          @if (filteredPresets.length === 0) {
+            <div class="select-search-empty">Eşleşen şablon yok</div>
           }
         </mat-select>
         <mat-hint>Seçilen şablonlar çözünürlüğe göre büyükten küçüğe sıralanır.</mat-hint>
