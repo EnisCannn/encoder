@@ -1,21 +1,27 @@
 package com.example.encoder.config;
 
+import com.example.encoder.entity.EncodeSet;
 import com.example.encoder.entity.EncodingPreset;
 import com.example.encoder.entity.enums.Format;
 import com.example.encoder.entity.enums.VideoCodec;
 import com.example.encoder.entity.enums.AudioCodec;
+import com.example.encoder.piko.PikoProfiles;
+import com.example.encoder.repository.EncodeSetRepository;
 import com.example.encoder.repository.EncodingPresetRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal; // <-- BigDecimal için gereken kütüphane eklendi
+import java.util.ArrayList;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 
     private final EncodingPresetRepository repository;
+    private final EncodeSetRepository encodeSetRepository;
 
     @Override
     public void run(String... args) throws Exception {
@@ -82,5 +88,61 @@ public class DataInitializer implements CommandLineRunner {
 
             System.out.println("4 adet varsayılan preset veritabanına başarıyla eklendi!");
         }
+
+        ensurePikoProfiles();
+    }
+
+    /**
+     * CMS (Piko adapter'i) icin gereken sablonlar ve paket. Her acilista
+     * calisir ama yalnizca eksik olani olusturur; kullanicinin duzenledigi
+     * kayitlara dokunmaz.
+     */
+    private void ensurePikoProfiles() {
+        if (!repository.existsByName(PikoProfiles.AUDIO_PRESET_NAME)) {
+            EncodingPreset audio = new EncodingPreset();
+            audio.setName(PikoProfiles.AUDIO_PRESET_NAME);
+            audio.setDescription("CMS dublaj isleri: yalnizca ses");
+            audio.setFormat(Format.MP4);
+            audio.setAudioCodec(AudioCodec.AAC);
+            audio.setAudioBitrate(128);
+            audio.setIsActive(true);
+            repository.save(audio);
+        }
+
+        if (encodeSetRepository.existsByName(PikoProfiles.VIDEO_SET_NAME)) {
+            return;
+        }
+
+        // Sira onemli: paketteki 1. sablon video_profile1.mp4 olur (CMS SMIL'iyle ayni sira)
+        List<EncodingPreset> videoPresets = List.of(
+                findOrCreatePikoPreset("Piko_Profil1_1080p_4000k", 1920, 1080, 4000),
+                findOrCreatePikoPreset("Piko_Profil2_1080p_2500k", 1920, 1080, 2500),
+                findOrCreatePikoPreset("Piko_Profil3_720p_1500k", 1280, 720, 1500),
+                findOrCreatePikoPreset("Piko_Profil4_540p_800k", 960, 540, 800));
+
+        EncodeSet set = new EncodeSet();
+        set.setName(PikoProfiles.VIDEO_SET_NAME);
+        set.setDescription("CMS (Piko adapter'i) icin: video_profile1..4.mp4");
+        set.setPresets(new ArrayList<>(videoPresets));
+        encodeSetRepository.save(set);
+
+        System.out.println("Piko uyumlu paket ve ses sablonu olusturuldu.");
+    }
+
+    /** frameRate bos: kaynagin kare hizi korunur (zorlamak VMAF'ta puan kaybettiriyordu). */
+    private EncodingPreset findOrCreatePikoPreset(String name, int width, int height, int videoKbps) {
+        return repository.findByName(name).orElseGet(() -> {
+            EncodingPreset preset = new EncodingPreset();
+            preset.setName(name);
+            preset.setFormat(Format.MP4);
+            preset.setVideoCodec(VideoCodec.H264);
+            preset.setAudioCodec(AudioCodec.AAC);
+            preset.setWidth(width);
+            preset.setHeight(height);
+            preset.setVideoBitrate(videoKbps);
+            preset.setAudioBitrate(128);
+            preset.setIsActive(true);
+            return repository.save(preset);
+        });
     }
 }

@@ -21,4 +21,8 @@ public interface EncodeSetRepository extends JpaRepository<EncodeSet, UUID> {
 
     @Query("SELECT s FROM EncodeSet s LEFT JOIN FETCH s.presets WHERE s.id = :id")
     Optional<EncodeSet> findByIdWithPresets(@Param("id") UUID id);
+
+    // Piko adapter'i paketi adiyla buluyor; presetler ayni sorguda gelsin diye fetch
+    @Query("SELECT s FROM EncodeSet s LEFT JOIN FETCH s.presets WHERE s.name = :name")
+    Optional<EncodeSet> findByNameWithPresets(@Param("name") String name);
 }

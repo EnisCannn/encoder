@@ -39,76 +39,86 @@ public class FFmpegEncoderService implements EncoderService {
         command.add("-i");
         command.add(video.getPath());
 
-        // 2. Dublaj Ses Dosyası
-        boolean hasDubbing = job.getDubbingPath() != null && !job.getDubbingPath().isEmpty();
-        if (hasDubbing) {
-            command.add("-i"); command.add(job.getDubbingPath());
-            command.add("-map"); command.add("0:v");
-            command.add("-map"); command.add("1:a");
+        // CMS dublaj isi: goruntu tamamen atilir (-vn), kaynagin ilk ses izi alinir.
+        // Asagidaki goruntu adimlari (2-6) bu modda atlaniyor; ses ayarlari (7) aynen gecerli.
+        boolean audioOnly = Boolean.TRUE.equals(job.getAudioOnly());
+        if (audioOnly) {
+            command.add("-map"); command.add("0:a:0");
+            command.add("-vn");
         }
 
-        // 3. Video Codec
-        if (preset.getVideoCodec() != null) {
-            String vCodec = preset.getVideoCodec().name();
-            if ("H264".equalsIgnoreCase(vCodec)) {
-                command.add("-c:v");
-                command.add("libx264");
-            } else if ("H265".equalsIgnoreCase(vCodec)) {
-                command.add("-c:v");
-                command.add("libx265");
-            } else if ("AV1".equalsIgnoreCase(vCodec)) {
-                command.add("-c:v");
-                command.add("libsvtav1");
+        if (!audioOnly) {
+            // 2. Dublaj Ses Dosyası
+            boolean hasDubbing = job.getDubbingPath() != null && !job.getDubbingPath().isEmpty();
+            if (hasDubbing) {
+                command.add("-i"); command.add(job.getDubbingPath());
+                command.add("-map"); command.add("0:v");
+                command.add("-map"); command.add("1:a");
             }
-        }
 
-        // 4. Video Bitrate (CBR - Sabit Bit Hızı ZORLAMASI)
-        if (preset.getVideoBitrate() != null) {
-            String bitrate = preset.getVideoBitrate() + "k";
-            command.add("-b:v"); command.add(bitrate);
-
-            // SVT-AV1 minrate/maxrate kabul etmiyor: "CBR Rate control is currently
-            // not supported ... use VBR mode" deyip hata veriyor. Bu yuzden AV1'de
-            // yalnizca hedef bitrate veriliyor; cikti CBR degil VBR oluyor.
-            // Sonuc: AV1 ciktilarinin bitrate'i H264/H265 kadar birebir sabit degil.
-            boolean cbrDestekleniyor = preset.getVideoCodec() == null
-                    || !"AV1".equalsIgnoreCase(preset.getVideoCodec().name());
-            if (cbrDestekleniyor) {
-                // Özelliklerde birebir aynı görünmesi için maksimum ve minimum oranları sabitliyoruz
-                command.add("-minrate"); command.add(bitrate);
-                command.add("-maxrate"); command.add(bitrate);
+            // 3. Video Codec
+            if (preset.getVideoCodec() != null) {
+                String vCodec = preset.getVideoCodec().name();
+                if ("H264".equalsIgnoreCase(vCodec)) {
+                    command.add("-c:v");
+                    command.add("libx264");
+                } else if ("H265".equalsIgnoreCase(vCodec)) {
+                    command.add("-c:v");
+                    command.add("libx265");
+                } else if ("AV1".equalsIgnoreCase(vCodec)) {
+                    command.add("-c:v");
+                    command.add("libsvtav1");
+                }
             }
-            command.add("-bufsize"); command.add((preset.getVideoBitrate() * 2) + "k");
-        }
 
-        // 5. FPS (Kare Hızı) ZORLAMASI - YENİ EKLENDİ
-        if (preset.getFrameRate() != null) {
-            command.add("-r");
-            command.add(preset.getFrameRate().toString());
-        }
+            // 4. Video Bitrate (CBR - Sabit Bit Hızı ZORLAMASI)
+            if (preset.getVideoBitrate() != null) {
+                String bitrate = preset.getVideoBitrate() + "k";
+                command.add("-b:v"); command.add(bitrate);
 
-        // 6. Filtreleri Birleştirme (Çözünürlük ve Altyazı)
-        List<String> videoFilters = new ArrayList<>();
+                // SVT-AV1 minrate/maxrate kabul etmiyor: "CBR Rate control is currently
+                // not supported ... use VBR mode" deyip hata veriyor. Bu yuzden AV1'de
+                // yalnizca hedef bitrate veriliyor; cikti CBR degil VBR oluyor.
+                // Sonuc: AV1 ciktilarinin bitrate'i H264/H265 kadar birebir sabit degil.
+                boolean cbrDestekleniyor = preset.getVideoCodec() == null
+                        || !"AV1".equalsIgnoreCase(preset.getVideoCodec().name());
+                if (cbrDestekleniyor) {
+                    // Özelliklerde birebir aynı görünmesi için maksimum ve minimum oranları sabitliyoruz
+                    command.add("-minrate"); command.add(bitrate);
+                    command.add("-maxrate"); command.add(bitrate);
+                }
+                command.add("-bufsize"); command.add((preset.getVideoBitrate() * 2) + "k");
+            }
 
-        if (preset.getWidth() != null && preset.getHeight() != null) {
-            videoFilters.add("scale=" + preset.getWidth() + ":" + preset.getHeight());
-        }
+            // 5. FPS (Kare Hızı) ZORLAMASI - YENİ EKLENDİ
+            if (preset.getFrameRate() != null) {
+                command.add("-r");
+                command.add(preset.getFrameRate().toString());
+            }
 
-        // Altyazı yalnızca BURN modunda görüntüye yakılır.
-        // SIDECAR modunda main-service ayrı bir .vtt üretir, burada yakma yapılmaz;
-        // böylece altyazı oynatıcıdan kapatılabilir ve her kaliteye tekrar gömülmez.
-        boolean burnSubtitle = job.getSubtitleMode() == SubtitleMode.BURN
-                && job.getSubtitlePath() != null
-                && !job.getSubtitlePath().isEmpty();
+            // 6. Filtreleri Birleştirme (Çözünürlük ve Altyazı)
+            List<String> videoFilters = new ArrayList<>();
 
-        if (burnSubtitle) {
-            String escapedSubtitlePath = job.getSubtitlePath().replace("\\", "/").replace(":", "\\:");
-            videoFilters.add("subtitles='" + escapedSubtitlePath + "'");
-        }
+            if (preset.getWidth() != null && preset.getHeight() != null) {
+                videoFilters.add("scale=" + preset.getWidth() + ":" + preset.getHeight());
+            }
 
-        if (!videoFilters.isEmpty()) {
-            command.add("-vf");
-            command.add(String.join(",", videoFilters));
+            // Altyazı yalnızca BURN modunda görüntüye yakılır.
+            // SIDECAR modunda main-service ayrı bir .vtt üretir, burada yakma yapılmaz;
+            // böylece altyazı oynatıcıdan kapatılabilir ve her kaliteye tekrar gömülmez.
+            boolean burnSubtitle = job.getSubtitleMode() == SubtitleMode.BURN
+                    && job.getSubtitlePath() != null
+                    && !job.getSubtitlePath().isEmpty();
+
+            if (burnSubtitle) {
+                String escapedSubtitlePath = job.getSubtitlePath().replace("\\", "/").replace(":", "\\:");
+                videoFilters.add("subtitles='" + escapedSubtitlePath + "'");
+            }
+
+            if (!videoFilters.isEmpty()) {
+                command.add("-vf");
+                command.add(String.join(",", videoFilters));
+            }
         }
 
         // 7. Ses Codec ve Bitrate

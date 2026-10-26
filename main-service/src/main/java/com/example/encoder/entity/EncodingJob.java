@@ -63,6 +63,19 @@ public class EncodingJob {
      */
     private Double vmafScore;
 
+    /**
+     * Ciktinin yazilacagi mutlak klasor. Yalnizca CMS'ten (Piko adapter'i)
+     * gelen islerde dolu; bos ise cikti her zamanki gibi encoder.folder.output
+     * altina gider. CMS SMIL'i bu klasore onceden yaziyor, dosyalari da orada arar.
+     */
+    private String outputDirectory;
+
+    /**
+     * Dublaj isleri: goruntu atilir, yalnizca ses encode edilir. Piko'nun
+     * WAVAudio/MP4Audio/TSAudio preset'lerinin karsiligi.
+     */
+    private Boolean audioOnly = false;
+
     @ManyToOne
     @JoinColumn(name = "preset_id")
     private EncodingPreset preset;

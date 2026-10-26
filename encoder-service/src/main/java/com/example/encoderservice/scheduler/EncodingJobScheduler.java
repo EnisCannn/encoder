@@ -42,7 +42,10 @@ public class EncodingJobScheduler {
                 + (job.getBatchId() != null ? " (Paket: " + job.getBatchId() + ")" : ""));
 
         // Paket işlerinde çıktı adı "<batchId>/<preset>.mp4" şeklinde alt klasör içerir
-        Path outputPath = Paths.get(outputFolder, job.getOutputFileName());
+        // CMS isleri kendi klasorunu getirir; digerleri her zamanki cikti klasorune yazar
+        Path outputPath = job.getOutputDirectory() != null
+                ? Paths.get(job.getOutputDirectory(), job.getOutputFileName())
+                : Paths.get(outputFolder, job.getOutputFileName());
 
         try {
             Path parent = outputPath.getParent();
