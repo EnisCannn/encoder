@@ -1,5 +1,6 @@
 package com.example.encoder.controller;
 
+import com.example.encoder.exception.ProcessingException;
 import com.example.encoder.dto.request.CreateEncodingJobRequest;
 import com.example.encoder.entity.EncodingJob;
 import com.example.encoder.service.SmilGeneratorService;
@@ -61,7 +62,7 @@ public class EncodingJobController {
                 request.setDubbingPath(dubPath.toAbsolutePath().toString());
             }
         } catch (IOException e) {
-            throw new RuntimeException("Dosya yükleme hatası: " + e.getMessage());
+            throw new ProcessingException("Dosya yükleme hatası: " + e.getMessage(), e);
         }
 
         // Tekli modda tek elemanlı, paket modunda setteki preset sayısı kadar iş döner

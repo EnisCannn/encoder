@@ -25,10 +25,14 @@ public interface EncodingJobRepository extends JpaRepository<EncodingJob, UUID> 
      * Tüm işleri COMPLETED olan paketlerin kimlikleri.
      * Manifest üretimi (SMIL / HLS master) ancak paket tamamen bittiğinde anlamlı olduğu için
      * içinde tek bir bitmemiş iş kalan paketler bu listeye girmez.
+     *
+     * CMS işleri (outputDirectory dolu) hariç: onların SMIL'ini CMS kendisi yazıyor,
+     * burada üretilirse /video_test/output altında boş paket klasörleri birikir.
      */
     @Query("""
             SELECT j.batchId FROM EncodingJob j
              WHERE j.batchId IS NOT NULL
+               AND j.outputDirectory IS NULL
              GROUP BY j.batchId
             HAVING COUNT(j) = SUM(CASE WHEN j.status = :completed THEN 1 ELSE 0 END)
             """)

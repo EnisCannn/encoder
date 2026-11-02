@@ -24,10 +24,21 @@ spring:
               predicates:
                 - Path=/api/**
 
+            # CMS (turksat-tvhy) Piko'ya konusur gibi buraya konusuyor;
+            # adres Piko'nunkiyle ayni olmali (bkz. main-service PikoSoapController)
+            - id: cms-soap
+              uri: lb://main-service
+              order: 1
+              predicates:
+                - Path=/pencadmin/**
+
           globalcors:
             cors-configurations:
               '[/**]':
                 allowedOrigins:
+                  # docker'daki arayuz (4200'u yerel CMS kullaniyor)
+                  - http://localhost:4300
+                  # ng serve ile gelistirme
                   - http://localhost:4200
                 allowedMethods:
                   - GET
@@ -55,6 +66,10 @@ encoder:
       # acik kalmak zorunda. Korunmasi gerekirse imzali gecici URL gerekir.
       - /api/videos/play/**
       - /actuator/**
+      # CMS JWT gonderemez; Piko'daki gibi SOAP login ile girer. Diger SOAP
+      # cagrilari oturum tasimadigi icin bu ucu yalnizca CMS'in erisebilecegi
+      # bir agda acmak gerekir.
+      - /pencadmin/**
 
 eureka:
   client:

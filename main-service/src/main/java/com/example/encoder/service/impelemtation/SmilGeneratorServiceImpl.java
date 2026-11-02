@@ -1,5 +1,8 @@
 package com.example.encoder.service.impelemtation;
 
+import com.example.encoder.exception.ProcessingException;
+import com.example.encoder.exception.NotFoundException;
+import com.example.encoder.exception.ConflictException;
 import com.example.encoder.entity.EncodingJob;
 import com.example.encoder.entity.EncodingPreset;
 import com.example.encoder.entity.JobStatus;
@@ -34,7 +37,7 @@ public class SmilGeneratorServiceImpl implements SmilGeneratorService {
     public Path generate(UUID batchId) {
         List<EncodingJob> jobs = jobRepository.findByBatchIdOrderByCreatedAtAsc(batchId);
         if (jobs.isEmpty()) {
-            throw new RuntimeException("Bu paket için iş bulunamadı: " + batchId);
+            throw new NotFoundException("Bu paket için iş bulunamadı: " + batchId);
         }
 
         List<EncodingJob> completed = jobs.stream()
@@ -43,7 +46,7 @@ public class SmilGeneratorServiceImpl implements SmilGeneratorService {
                 .toList();
 
         if (completed.isEmpty()) {
-            throw new RuntimeException("Bu pakette tamamlanmış iş yok: " + batchId);
+            throw new ConflictException("Bu pakette tamamlanmış iş yok: " + batchId);
         }
 
         Path targetDir = Paths.get(outputFolder).resolve(batchId.toString());
@@ -54,7 +57,7 @@ public class SmilGeneratorServiceImpl implements SmilGeneratorService {
             Files.writeString(target, buildSmil(completed), StandardCharsets.UTF_8);
             return target;
         } catch (IOException e) {
-            throw new RuntimeException("SMIL yazılamadı: " + e.getMessage(), e);
+            throw new ProcessingException("SMIL yazılamadı: " + e.getMessage(), e);
         }
     }
 
@@ -67,7 +70,7 @@ public class SmilGeneratorServiceImpl implements SmilGeneratorService {
             }
             return Files.readString(generate(batchId), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new RuntimeException("SMIL okunamadı: " + e.getMessage(), e);
+            throw new ProcessingException("SMIL okunamadı: " + e.getMessage(), e);
         }
     }
 

@@ -2,6 +2,7 @@ package com.example.encoder.controller;
 
 import com.example.encoder.dto.CalibrationSweepRequest;
 import com.example.encoder.entity.QualityMeasurement;
+import com.example.encoder.exception.BadRequestException;
 import com.example.encoder.service.CalibrationSweepService;
 import com.example.encoder.service.QualityMeasurementService;
 import jakarta.validation.Valid;
@@ -26,31 +27,22 @@ public class QualityMeasurementController {
      * tekli işte liste tek elemanlı olur.
      */
     @PostMapping("/measure")
-    public ResponseEntity<?> measure(@RequestBody Map<String, List<UUID>> body) {
-        try {
-            List<UUID> jobIds = body.get("jobIds");
-            if (jobIds == null || jobIds.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("hata", "jobIds boş olamaz."));
-            }
-
-            List<QualityMeasurement> queued = service.requestMeasurements(jobIds);
-            if (queued.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "hata", "Ölçülebilecek tamamlanmış iş bulunamadı."));
-            }
-            return ResponseEntity.ok(queued);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(Map.of("hata", e.getMessage()));
+    public ResponseEntity<List<QualityMeasurement>> measure(@RequestBody Map<String, List<UUID>> body) {
+        List<UUID> jobIds = body.get("jobIds");
+        if (jobIds == null || jobIds.isEmpty()) {
+            throw new BadRequestException("jobIds boş olamaz.");
         }
+
+        List<QualityMeasurement> queued = service.requestMeasurements(jobIds);
+        if (queued.isEmpty()) {
+            throw new BadRequestException("Ölçülebilecek tamamlanmış iş bulunamadı.");
+        }
+        return ResponseEntity.ok(queued);
     }
 
     @PostMapping("/measure/batch/{batchId}")
-    public ResponseEntity<?> measureBatch(@PathVariable UUID batchId) {
-        try {
-            return ResponseEntity.ok(service.requestForBatch(batchId));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(Map.of("hata", e.getMessage()));
-        }
+    public ResponseEntity<List<QualityMeasurement>> measureBatch(@PathVariable UUID batchId) {
+        return ResponseEntity.ok(service.requestForBatch(batchId));
     }
 
     /**
@@ -58,32 +50,20 @@ public class QualityMeasurementController {
      * işler bitince ölçümleri otomatik kuyruğa girer.
      */
     @PostMapping("/sweep")
-    public ResponseEntity<?> startSweep(@Valid @RequestBody CalibrationSweepRequest request) {
-        try {
-            return ResponseEntity.ok(Map.of(
-                    "olusturulanIs", sweepService.startSweep(request).size()));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("hata", e.getMessage()));
-        }
+    public ResponseEntity<Map<String, Integer>> startSweep(@Valid @RequestBody CalibrationSweepRequest request) {
+        return ResponseEntity.ok(Map.of(
+                "olusturulanIs", sweepService.startSweep(request).size()));
     }
 
     /** Kalite analizi grafiğinin verisi: tamamlanmış tüm ölçümler. */
     @GetMapping("/curves")
     public ResponseEntity<?> curves() {
-        try {
-            return ResponseEntity.ok(service.getCurvePoints());
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(Map.of("hata", e.getMessage()));
-        }
+        return ResponseEntity.ok(service.getCurvePoints());
     }
 
     /** Ayrıntılı sonuç (min / harmonik ortalama / hata mesajı) için. */
     @GetMapping
     public ResponseEntity<?> get(@RequestParam List<UUID> jobIds) {
-        try {
-            return ResponseEntity.ok(service.getMeasurements(jobIds));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(Map.of("hata", e.getMessage()));
-        }
+        return ResponseEntity.ok(service.getMeasurements(jobIds));
     }
 }

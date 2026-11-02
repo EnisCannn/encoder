@@ -6,6 +6,7 @@ import com.example.encoderservice.entity.Video;
 import com.example.encoderservice.entity.enums.SubtitleMode;
 import com.example.encoderservice.repository.EncodingJobRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import com.example.encoderservice.util.FFmpegProcessRunner;
@@ -15,6 +16,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FFmpegEncoderService implements EncoderService {
@@ -27,6 +29,39 @@ public class FFmpegEncoderService implements EncoderService {
 
     @Override
     public EncodingResult encode(EncodingJob job, Path output) {
+        Video video = job.getVideo();
+        List<String> command = buildCommand(job, output);
+
+        try {
+            log.info("FFmpeg çalışmaya başladı (Job ID: {})", job.getId());
+            log.info("FFmpeg komutu: {}", String.join(" ", command));
+
+            // Ilerleme okuma cagiran thread'de kaliyor; jobRepository yazmasi
+            // scheduler thread'inde oldugu gibi devam ediyor.
+            FFmpegProcessRunner.Result result = FFmpegProcessRunner.run(
+                    command, encodeTimeoutSeconds, line -> updateProgress(job, video, line));
+
+            int exitCode = result.exitCode();
+            log.info("FFmpeg durdu (Job ID: {}), çıkış kodu: {}", job.getId(), exitCode);
+
+            return EncodingResult.builder()
+                    .success(exitCode == 0)
+                    .outputPath(output.toString())
+                    .exitCode(exitCode)
+                    .errorMessage(exitCode != 0 ? "FFmpeg işlemi başarısız oldu" : null)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("FFmpeg çalıştırılamadı (Job ID: {})", job.getId(), e);
+            return EncodingResult.builder()
+                    .success(false)
+                    .errorMessage("Sistem hatası: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    /** ffmpeg komutunu isin ve sablonun ayarlarindan kurar. Paket ici: birim testi dogrudan cagiriyor. */
+    List<String> buildCommand(EncodingJob job, Path output) {
         Video video = job.getVideo();
         EncodingPreset preset = job.getPreset();
 
@@ -136,37 +171,11 @@ public class FFmpegEncoderService implements EncoderService {
         command.add("-shortest");
 
         command.add(output.toString());
-
-        try {
-            System.out.println("--- FFMPEG MOTORU ÇALIŞMAYA BAŞLADI (Job ID: " + job.getId() + ") ---");
-            System.out.println("[FFMPEG CMD]: " + String.join(" ", command));
-
-            // Ilerleme okuma cagiran thread'de kaliyor; jobRepository yazmasi
-            // scheduler thread'inde oldugu gibi devam ediyor.
-            FFmpegProcessRunner.Result result = FFmpegProcessRunner.run(
-                    command, encodeTimeoutSeconds, line -> updateProgress(job, video, line));
-
-            int exitCode = result.exitCode();
-            System.out.println("--- FFMPEG MOTORU DURDU, Çıkış Kodu: " + exitCode + " ---");
-
-            return EncodingResult.builder()
-                    .success(exitCode == 0)
-                    .outputPath(output.toString())
-                    .exitCode(exitCode)
-                    .errorMessage(exitCode != 0 ? "FFmpeg işlemi başarısız oldu" : null)
-                    .build();
-
-        } catch (Exception e) {
-            System.out.println("SİSTEM HATASI: " + e.getMessage());
-            return EncodingResult.builder()
-                    .success(false)
-                    .errorMessage("Sistem hatası: " + e.getMessage())
-                    .build();
-        }
+        return command;
     }
 
     /** ffmpeg'in "time=00:00:12.34" satirindan yuzdelik ilerlemeyi cikarip kaydeder. */
-    private void updateProgress(EncodingJob job, Video video, String line) {
+    void updateProgress(EncodingJob job, Video video, String line) {
         if (!line.contains("time=")) {
             return;
         }
@@ -189,7 +198,7 @@ public class FFmpegEncoderService implements EncoderService {
                 if (job.getProgress() == null || !job.getProgress().equals(progress)) {
                     job.setProgress(progress);
                     jobRepository.saveAndFlush(job);
-                    System.out.println("[PROGRESS]: %" + progress + " tamamlandı.");
+                    log.debug("İlerleme: %{}", progress);
                 }
             }
         } catch (Exception e) {

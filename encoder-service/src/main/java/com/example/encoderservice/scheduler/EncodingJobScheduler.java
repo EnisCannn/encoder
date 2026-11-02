@@ -6,6 +6,7 @@ import com.example.encoderservice.entity.EncodingJob;
 import com.example.encoderservice.entity.JobStatus;
 import com.example.encoderservice.repository.EncodingJobRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.Optional;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class EncodingJobScheduler {
@@ -38,8 +40,8 @@ public class EncodingJobScheduler {
         }
 
         EncodingJob job = claimedOpt.get();
-        System.out.println("İş kapıldı, başlanıyor... Job ID: " + job.getId()
-                + (job.getBatchId() != null ? " (Paket: " + job.getBatchId() + ")" : ""));
+        log.info("İş kapıldı, başlanıyor... Job ID: {}{}", job.getId(),
+                job.getBatchId() != null ? " (Paket: " + job.getBatchId() + ")" : "");
 
         // Paket işlerinde çıktı adı "<batchId>/<preset>.mp4" şeklinde alt klasör içerir
         // CMS isleri kendi klasorunu getirir; digerleri her zamanki cikti klasorune yazar
@@ -57,7 +59,7 @@ public class EncodingJobScheduler {
             job.setErrorMessage("Çıktı klasörü oluşturulamadı: " + e.getMessage());
             job.setCompletedAt(Instant.now());
             jobRepository.save(job);
-            System.out.println("Çıktı klasörü oluşturulamadı: " + e.getMessage());
+            log.error("Çıktı klasörü oluşturulamadı (Job ID: {})", job.getId(), e);
             return;
         }
 
@@ -68,12 +70,12 @@ public class EncodingJobScheduler {
             job.setOutputPath(outputPath.toString());
             job.setCompletedAt(Instant.now());
             job.setProgress(100);
-            System.out.println("İşlem başarıyla tamamlandı. Job ID: " + job.getId());
+            log.info("İşlem başarıyla tamamlandı. Job ID: {}", job.getId());
         } else {
             job.setStatus(JobStatus.FAILED);
             job.setErrorMessage(result.getErrorMessage());
             job.setCompletedAt(Instant.now());
-            System.out.println("İşlem başarısız oldu: " + result.getErrorMessage());
+            log.warn("İşlem başarısız oldu (Job ID: {}): {}", job.getId(), result.getErrorMessage());
         }
         jobRepository.save(job);
     }

@@ -3,14 +3,16 @@ package com.example.encoder.service.impelemtation;
 import com.example.encoder.entity.Video;
 import com.example.encoder.repository.VideoRepository;
 import com.example.encoder.service.VideoService;
+import com.example.encoder.util.FFmpegProcessRunner;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,11 +20,16 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class VideoServiceImpl implements VideoService {
 
+    /** Saglam bir dosyada ffprobe saniyeler icinde biter; takilirsa istek bekletilmez. */
+    private static final long FFPROBE_TIMEOUT_SECONDS = 60;
+
     private final VideoRepository repository;
+    private final JsonMapper jsonMapper;
 
     @Value("${encoder.folder.input}")
     private String inputFolder;
@@ -33,9 +40,7 @@ public class VideoServiceImpl implements VideoService {
     /** Kalibrasyon tarama formundaki secici icin: en yeni videolar basta. */
     @Override
     public List<Video> getAllVideos() {
-        return repository.findAll().stream()
-                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
-                .toList();
+        return repository.findAllByOrderByCreatedAtDesc();
     }
 
     @Override
@@ -62,65 +67,76 @@ public class VideoServiceImpl implements VideoService {
         return repository.save(video);
     }
 
-    // AJANIN METODU (Nihai ve Tam Sürüm) - Dışarıdan görünmez, interface'e yazılmaz.
-    private void extractVideoMetadata(Video video, String filePath) {
+    /**
+     * Worker'in ilerleme hesabi Video.duration'a bakiyor; o yuzden CMS'in
+     * dosyasi da yuklenen dosyalar gibi ffprobe'dan geciriliyor.
+     */
+    @Override
+    public Video registerExisting(Path path) {
+        Video video = new Video();
+        video.setOriginalFileName(path.getFileName().toString());
+        video.setStoredFileName(path.getFileName().toString());
+        video.setPath(path.toString());
         try {
-            // 1. Çözünürlüğü okuma (Genişlik ve Yükseklik)
-            ProcessBuilder resBuilder = new ProcessBuilder(
-                    ffprobePath, "-v", "error", "-select_streams", "v:0",
-                    "-show_entries", "stream=width,height", "-of", "csv=s=x:p=0", filePath);
-            resBuilder.redirectErrorStream(true);
-            Process resProcess = resBuilder.start();
-            BufferedReader resReader = new BufferedReader(new InputStreamReader(resProcess.getInputStream()));
-            String resolution = resReader.readLine();
+            video.setSize(Files.size(path));
+        } catch (IOException e) {
+            // Boyut yalnizca bilgi amacli; okunamazsa encode yine yapilabilir
+        }
 
-            if (resolution != null && resolution.contains("x")) {
-                String[] parts = resolution.split("x");
-                video.setWidth(Integer.parseInt(parts[0].trim()));
-                video.setHeight(Integer.parseInt(parts[1].trim()));
+        extractVideoMetadata(video, path.toString());
+
+        return repository.save(video);
+    }
+
+
+    /**
+     * Cozunurluk, sure ve codec bilgilerini tek ffprobe cagrisiyla JSON olarak okur.
+     * Onceden dort ayri surec aciliyordu; ortak calistirici sayesinde artik sure
+     * asiminda surec olduruluyor ve cikti akisi her zaman kapatiliyor.
+     * Metadata yalnizca bilgi amacli: okunamazsa video yine kaydedilir.
+     */
+    private void extractVideoMetadata(Video video, String filePath) {
+        // Yalnizca gereken alanlar isteniyor; cok akisli dosyalarda bile cikti kucuk kalir
+        List<String> command = List.of(ffprobePath, "-v", "error",
+                "-show_entries", "stream=codec_type,codec_name,width,height:format=duration",
+                "-of", "json", filePath);
+        try {
+            FFmpegProcessRunner.Result result = FFmpegProcessRunner.run(command, FFPROBE_TIMEOUT_SECONDS);
+            if (!result.isSuccess()) {
+                log.warn("ffprobe metadata okuyamadi ({}): {}", filePath, result.output().trim());
+                return;
             }
-
-            // 2. Süreyi okuma (Duration)
-            ProcessBuilder durBuilder = new ProcessBuilder(
-                    ffprobePath, "-v", "error", "-show_entries",
-                    "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", filePath);
-            durBuilder.redirectErrorStream(true);
-            Process durProcess = durBuilder.start();
-            BufferedReader durReader = new BufferedReader(new InputStreamReader(durProcess.getInputStream()));
-            String duration = durReader.readLine();
-
-            if (duration != null && !duration.trim().isEmpty()) {
-                video.setDuration(new BigDecimal(duration.trim()));
-            }
-
-            // 3. Video Codec okuma (Örn: h264)
-            ProcessBuilder vCodecBuilder = new ProcessBuilder(
-                    ffprobePath, "-v", "error", "-select_streams", "v:0",
-                    "-show_entries", "stream=codec_name", "-of", "default=noprint_wrappers=1:nokey=1", filePath);
-            vCodecBuilder.redirectErrorStream(true);
-            Process vCodecProcess = vCodecBuilder.start();
-            BufferedReader vCodecReader = new BufferedReader(new InputStreamReader(vCodecProcess.getInputStream()));
-            String videoCodec = vCodecReader.readLine();
-
-            if (videoCodec != null && !videoCodec.trim().isEmpty()) {
-                video.setVideoCodec(videoCodec.trim());
-            }
-
-            // 4. Audio Codec okuma (Örn: aac)
-            ProcessBuilder aCodecBuilder = new ProcessBuilder(
-                    ffprobePath, "-v", "error", "-select_streams", "a:0",
-                    "-show_entries", "stream=codec_name", "-of", "default=noprint_wrappers=1:nokey=1", filePath);
-            aCodecBuilder.redirectErrorStream(true);
-            Process aCodecProcess = aCodecBuilder.start();
-            BufferedReader aCodecReader = new BufferedReader(new InputStreamReader(aCodecProcess.getInputStream()));
-            String audioCodec = aCodecReader.readLine();
-
-            if (audioCodec != null && !audioCodec.trim().isEmpty()) {
-                video.setAudioCodec(audioCodec.trim());
-            }
-
+            applyMetadata(video, jsonMapper.readTree(result.output()));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Metadata okuma kesildi: {}", filePath);
         } catch (Exception e) {
-            System.out.println("Metadata okuma hatası: " + e.getMessage());
+            log.warn("Metadata okuma hatasi ({}): {}", filePath, e.getMessage());
+        }
+    }
+
+    private void applyMetadata(Video video, JsonNode probe) {
+        String duration = probe.path("format").path("duration").asString("");
+        if (!duration.isBlank()) {
+            video.setDuration(new BigDecimal(duration.trim()));
+        }
+
+        boolean videoFound = false;
+        boolean audioFound = false;
+        for (JsonNode stream : probe.path("streams")) {
+            String type = stream.path("codec_type").asString("");
+            // Eskisi gibi ilk video (v:0) ve ilk ses (a:0) akisi esas aliniyor
+            if ("video".equals(type) && !videoFound) {
+                videoFound = true;
+                video.setVideoCodec(stream.path("codec_name").asString(null));
+                if (stream.has("width") && stream.has("height")) {
+                    video.setWidth(stream.path("width").asInt());
+                    video.setHeight(stream.path("height").asInt());
+                }
+            } else if ("audio".equals(type) && !audioFound) {
+                audioFound = true;
+                video.setAudioCodec(stream.path("codec_name").asString(null));
+            }
         }
     }
 }

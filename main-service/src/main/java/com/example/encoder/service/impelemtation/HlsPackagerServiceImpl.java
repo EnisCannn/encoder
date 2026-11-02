@@ -1,5 +1,7 @@
 package com.example.encoder.service.impelemtation;
 
+import com.example.encoder.exception.ProcessingException;
+import com.example.encoder.exception.ConflictException;
 import com.example.encoder.entity.EncodingJob;
 import com.example.encoder.entity.EncodingPreset;
 import com.example.encoder.entity.JobStatus;
@@ -54,7 +56,7 @@ public class HlsPackagerServiceImpl implements HlsPackagerService {
                 .toList();
 
         if (jobs.isEmpty()) {
-            throw new RuntimeException("Bu pakette tamamlanmış iş yok: " + batchId);
+            throw new ConflictException("Bu pakette tamamlanmış iş yok: " + batchId);
         }
 
         Path batchDir = Paths.get(outputFolder).resolve(batchId.toString());
@@ -98,7 +100,7 @@ public class HlsPackagerServiceImpl implements HlsPackagerService {
                 Path source = batchDir.resolve(fileNameOnly(job.getOutputFileName()));
 
                 if (!Files.exists(source)) {
-                    throw new RuntimeException("Kaynak çıktı bulunamadı: " + source);
+                    throw new ProcessingException("Kaynak çıktı bulunamadı: " + source);
                 }
 
                 segmentToHls(source, variantDir);
@@ -119,7 +121,7 @@ public class HlsPackagerServiceImpl implements HlsPackagerService {
             return masterPath;
 
         } catch (IOException e) {
-            throw new RuntimeException("HLS paketlenemedi: " + e.getMessage(), e);
+            throw new ProcessingException("HLS paketlenemedi: " + e.getMessage(), e);
         }
     }
 
@@ -200,16 +202,16 @@ public class HlsPackagerServiceImpl implements HlsPackagerService {
                     com.example.encoder.util.FFmpegProcessRunner.run(command, toolTimeoutSeconds);
 
             if (!result.isSuccess()) {
-                throw new RuntimeException(label + " başarısız (çıkış kodu "
+                throw new ProcessingException(label + " başarısız (çıkış kodu "
                         + result.exitCode() + "): " + result.output());
             }
             return result.output();
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException(label + " yarıda kesildi", e);
+            throw new ProcessingException(label + " yarıda kesildi", e);
         } catch (IOException e) {
-            throw new RuntimeException(label + " çalıştırılamadı: " + e.getMessage(), e);
+            throw new ProcessingException(label + " çalıştırılamadı: " + e.getMessage(), e);
         }
     }
 

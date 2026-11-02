@@ -1,5 +1,8 @@
 package com.example.encoder.service.impelemtation;
 
+import com.example.encoder.exception.NotFoundException;
+import com.example.encoder.exception.ConflictException;
+import com.example.encoder.exception.BadRequestException;
 import com.example.encoder.dto.CreateEncodeSetRequest;
 import com.example.encoder.dto.EncodeSetResponse;
 import com.example.encoder.dto.PresetResponse;
@@ -50,9 +53,9 @@ public class EncodeSetServiceImpl implements EncodeSetService {
         List<EncodingPreset> presets = new ArrayList<>();
         for (UUID presetId : presetIds) {
             EncodingPreset preset = presetRepository.findById(presetId)
-                    .orElseThrow(() -> new RuntimeException("Preset bulunamadi: " + presetId));
+                    .orElseThrow(() -> new NotFoundException("Preset bulunamadi: " + presetId));
             if (presets.contains(preset)) {
-                throw new RuntimeException("Ayni preset pakete iki kez eklenemez: " + preset.getName());
+                throw new BadRequestException("Ayni preset pakete iki kez eklenemez: " + preset.getName());
             }
             presets.add(preset);
         }
@@ -63,7 +66,7 @@ public class EncodeSetServiceImpl implements EncodeSetService {
     @Transactional
     public EncodeSetResponse createSet(CreateEncodeSetRequest request) {
         if (repository.existsByName(request.name())) {
-            throw new RuntimeException("Bu isimde bir paket zaten var: " + request.name());
+            throw new ConflictException("Bu isimde bir paket zaten var: " + request.name());
         }
 
         EncodeSet entity = new EncodeSet();
@@ -79,10 +82,10 @@ public class EncodeSetServiceImpl implements EncodeSetService {
     @Transactional
     public EncodeSetResponse updateSet(UUID id, CreateEncodeSetRequest request) {
         EncodeSet entity = repository.findByIdWithPresets(id)
-                .orElseThrow(() -> new RuntimeException("Paket bulunamadi!"));
+                .orElseThrow(() -> new NotFoundException("Paket bulunamadi!"));
 
         if (!entity.getName().equals(request.name()) && repository.existsByName(request.name())) {
-            throw new RuntimeException("Bu isimde bir paket zaten var: " + request.name());
+            throw new ConflictException("Bu isimde bir paket zaten var: " + request.name());
         }
 
         entity.setName(request.name());
@@ -98,7 +101,7 @@ public class EncodeSetServiceImpl implements EncodeSetService {
     public EncodeSetResponse getSet(UUID id) {
         return repository.findByIdWithPresets(id)
                 .map(this::mapToResponse)
-                .orElseThrow(() -> new RuntimeException("Paket bulunamadi!"));
+                .orElseThrow(() -> new NotFoundException("Paket bulunamadi!"));
     }
 
     @Override
@@ -113,7 +116,7 @@ public class EncodeSetServiceImpl implements EncodeSetService {
     @Transactional
     public void deleteSet(UUID id) {
         if (!repository.existsById(id)) {
-            throw new RuntimeException("Paket bulunamadi!");
+            throw new NotFoundException("Paket bulunamadi!");
         }
         repository.deleteById(id);
     }

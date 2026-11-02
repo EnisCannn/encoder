@@ -8,6 +8,7 @@ import com.example.encoder.service.SmilGeneratorService;
 import com.example.encoder.service.impelemtation.HlsPackagerServiceImpl;
 import com.example.encoder.service.impelemtation.SmilGeneratorServiceImpl;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,7 @@ import java.util.UUID;
  * ikisi de "paket tamamlandı" görüp manifesti iki kez üretmeye kalkardı.
  * main-service tek kopya çalıştığı için böyle bir yarış oluşmuyor.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ManifestScheduler {
@@ -56,9 +58,9 @@ public class ManifestScheduler {
             if (!Files.exists(smil)) {
                 try {
                     smilGeneratorService.generate(batchId);
-                    System.out.println("SMIL üretildi: " + smil);
+                    log.info("SMIL üretildi: {}", smil);
                 } catch (Exception e) {
-                    System.out.println("SMIL üretilemedi (paket " + batchId + "): " + e.getMessage());
+                    log.error("SMIL üretilemedi (paket {})", batchId, e);
                 }
             }
 
@@ -72,9 +74,9 @@ public class ManifestScheduler {
             if (!Files.exists(master)) {
                 try {
                     hlsPackagerService.packageBatch(batchId);
-                    System.out.println("HLS master üretildi: " + master);
+                    log.info("HLS master üretildi: {}", master);
                 } catch (Exception e) {
-                    System.out.println("HLS paketlenemedi (paket " + batchId + "): " + e.getMessage());
+                    log.error("HLS paketlenemedi (paket {})", batchId, e);
                 }
             }
         }

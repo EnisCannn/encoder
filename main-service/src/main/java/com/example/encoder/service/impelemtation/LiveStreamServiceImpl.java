@@ -1,5 +1,8 @@
 package com.example.encoder.service.impelemtation;
 
+import com.example.encoder.exception.ProcessingException;
+import com.example.encoder.exception.NotFoundException;
+import com.example.encoder.exception.BadRequestException;
 import com.example.encoder.dto.LiveClipRequest;
 import com.example.encoder.dto.LiveStreamRequest;
 import com.example.encoder.entity.EncodingPreset;
@@ -9,6 +12,7 @@ import com.example.encoder.repository.LiveStreamRepository;
 import com.example.encoder.repository.VideoRepository;
 import com.example.encoder.service.LiveStreamService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +26,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class LiveStreamServiceImpl implements LiveStreamService {
@@ -79,7 +84,7 @@ public class LiveStreamServiceImpl implements LiveStreamService {
         } catch (Exception e) {
             stream.setStatus("ERROR");
             repository.save(stream);
-            throw new RuntimeException("Yayın başlatılamadı: " + e.getMessage());
+            throw new ProcessingException("Yayın başlatılamadı: " + e.getMessage(), e);
         }
         return stream;
     }
@@ -164,7 +169,7 @@ public class LiveStreamServiceImpl implements LiveStreamService {
                     new java.io.InputStreamReader(process.getInputStream()))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    System.out.println("YAYIN LOGU: " + line);
+                    log.debug("Yayın logu: {}", line);
                 }
             } catch (Exception ignored) {
             } finally {
@@ -176,12 +181,12 @@ public class LiveStreamServiceImpl implements LiveStreamService {
                 activeStreams.remove(streamId);
 
                 if (Boolean.TRUE.equals(manuallyStopped.get(streamId))) {
-                    System.out.println("--- YAYIN KULLANICI TARAFINDAN DURDURULDU: " + streamId + " ---");
+                    log.info("Yayın kullanıcı tarafından durduruldu: {}", streamId);
                     return;
                 }
 
                 // Kaynak tükendi: playlist'e ekleyerek kaldığı yerden devam et
-                System.out.println("--- KAYNAK BİTTİ, YAYIN DEVAM ETTİRİLİYOR: " + streamId + " ---");
+                log.info("Kaynak bitti, yayın devam ettiriliyor: {}", streamId);
                 try {
                     Thread.sleep(300);
                     LiveStream fresh = repository.findById(streamId).orElse(null);
@@ -190,7 +195,7 @@ public class LiveStreamServiceImpl implements LiveStreamService {
                         launchFfmpeg(fresh, req);
                     }
                 } catch (Exception e) {
-                    System.out.println("Devam ettirme hatası: " + e.getMessage());
+                    log.error("Yayın devam ettirilemedi: {}", streamId, e);
                     repository.findById(streamId).ifPresent(s -> {
                         s.setStatus("ERROR");
                         s.setStreamEndTime(System.currentTimeMillis());
@@ -233,10 +238,10 @@ public class LiveStreamServiceImpl implements LiveStreamService {
     @Override
     public String createLiveClip(LiveClipRequest request) {
         LiveStream stream = repository.findById(UUID.fromString(request.getStreamId()))
-                .orElseThrow(() -> new RuntimeException("Yayın bulunamadı!"));
+                .orElseThrow(() -> new NotFoundException("Yayın bulunamadı!"));
 
         EncodingPreset preset = presetRepository.findById(UUID.fromString(request.getPresetId()))
-                .orElseThrow(() -> new RuntimeException("Şablon bulunamadı!"));
+                .orElseThrow(() -> new NotFoundException("Şablon bulunamadı!"));
 
         // Klip DAİMA diskteki yayın kaydından kesilir, orijinal kaynak dosyadan değil.
         Path m3u8Path = Paths.get(stream.getOutputFolder(), "index.m3u8");
@@ -259,7 +264,7 @@ public class LiveStreamServiceImpl implements LiveStreamService {
             }
             java.nio.file.Files.write(snapshotM3u8, snapshot, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            throw new RuntimeException("Playlist kopyalanamadı: " + e.getMessage());
+            throw new ProcessingException("Playlist kopyalanamadı: " + e.getMessage(), e);
         }
 
         String extension = preset.getFormat() != null ? preset.getFormat().name().toLowerCase() : "mp4";
@@ -276,7 +281,7 @@ public class LiveStreamServiceImpl implements LiveStreamService {
 
         if (endOffsetSec <= startOffsetSec) {
             try { java.nio.file.Files.deleteIfExists(snapshotM3u8); } catch (Exception ignored) {}
-            throw new RuntimeException("Zamanlama Hatası! Bitiş süresi başlangıçtan büyük olmalıdır.");
+            throw new BadRequestException("Zamanlama Hatası! Bitiş süresi başlangıçtan büyük olmalıdır.");
         }
 
         double durationSec = endOffsetSec - startOffsetSec;
@@ -327,17 +332,17 @@ public class LiveStreamServiceImpl implements LiveStreamService {
         command.add(outputPath.toString());
 
         try {
-            System.out.println("--- YAYINDAN KLİP ALMA İŞLEMİ BAŞLADI ---");
+            log.info("Yayından klip alma başladı");
 
             com.example.encoder.util.FFmpegProcessRunner.Result result =
                     com.example.encoder.util.FFmpegProcessRunner.run(
-                            command, clipTimeoutSeconds, System.out::println);
+                            command, clipTimeoutSeconds, line -> log.debug("[FFmpeg klip]: {}", line));
 
             int exitCode = result.exitCode();
-            System.out.println("--- YAYINDAN KLİP ALMA BİTTİ. Çıkış Kodu: " + exitCode + " ---");
+            log.info("Yayından klip alma bitti, çıkış kodu: {}", exitCode);
 
             if (exitCode != 0) {
-                throw new RuntimeException("Klip başarısız oldu. Lütfen container loglarındaki FFmpeg loglarını kontrol et.");
+                throw new ProcessingException("Klip başarısız oldu. Lütfen container loglarındaki FFmpeg loglarını kontrol et.");
             }
 
             com.example.encoder.entity.Video clipVideo = new com.example.encoder.entity.Video();
@@ -348,7 +353,7 @@ public class LiveStreamServiceImpl implements LiveStreamService {
 
             return outputFileName;
         } catch (Exception e) {
-            throw new RuntimeException("Sistem hatası: " + e.getMessage());
+            throw new ProcessingException("Sistem hatası: " + e.getMessage(), e);
         } finally {
             try {
                 java.nio.file.Files.deleteIfExists(snapshotM3u8);

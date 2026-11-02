@@ -1,5 +1,7 @@
 package com.example.encoder.service.impelemtation;
 
+import com.example.encoder.exception.NotFoundException;
+import com.example.encoder.exception.BadRequestException;
 import com.example.encoder.dto.request.CreateEncodingJobRequest;
 import com.example.encoder.entity.EncodeSet;
 import com.example.encoder.entity.EncodingJob;
@@ -41,19 +43,19 @@ public class EncodingJobServiceImpl implements EncodingJobService {
     @Transactional
     public List<EncodingJob> createJobs(CreateEncodingJobRequest request) {
         if (request.getEncodeSetId() == null && request.getPresetId() == null) {
-            throw new RuntimeException("Bir şablon (presetId) ya da bir paket (encodeSetId) seçilmeli!");
+            throw new BadRequestException("Bir şablon (presetId) ya da bir paket (encodeSetId) seçilmeli!");
         }
         if (request.getEncodeSetId() != null && request.getPresetId() != null) {
-            throw new RuntimeException("Aynı anda hem şablon hem paket seçilemez!");
+            throw new BadRequestException("Aynı anda hem şablon hem paket seçilemez!");
         }
 
         Video video = videoRepository.findById(request.getVideoId())
-                .orElseThrow(() -> new RuntimeException("Video bulunamadı!"));
+                .orElseThrow(() -> new NotFoundException("Video bulunamadı!"));
 
         // TEKLİ MOD - eski davranış birebir korunuyor
         if (request.getPresetId() != null) {
             EncodingPreset preset = presetRepository.findById(request.getPresetId())
-                    .orElseThrow(() -> new RuntimeException("Preset bulunamadı!"));
+                    .orElseThrow(() -> new NotFoundException("Preset bulunamadı!"));
 
             String outName = request.getOutputFileName() != null
                     ? request.getOutputFileName()
@@ -68,10 +70,10 @@ public class EncodingJobServiceImpl implements EncodingJobService {
 
         // PAKET MODU - setteki her preset için ayrı bir iş
         EncodeSet set = encodeSetRepository.findByIdWithPresets(request.getEncodeSetId())
-                .orElseThrow(() -> new RuntimeException("Paket bulunamadı!"));
+                .orElseThrow(() -> new NotFoundException("Paket bulunamadı!"));
 
         if (set.getPresets().isEmpty()) {
-            throw new RuntimeException("Seçilen paketin içinde hiç şablon yok: " + set.getName());
+            throw new BadRequestException("Seçilen paketin içinde hiç şablon yok: " + set.getName());
         }
 
         // Aynı yüklemeden doğan tüm işleri birbirine bağlayan kimlik.
@@ -212,6 +214,8 @@ public class EncodingJobServiceImpl implements EncodingJobService {
         if (safe.length() > 40) {
             safe = safe.substring(0, 40);
         }
+        // "Video (1)" gibi adlar "_" ile bitiyordu; ardindan gelen "_1080p" ile cift alt cizgi olusuyordu
+        safe = safe.replaceAll("^_+|_+$", "");
         return safe.isBlank() ? "video" : safe;
     }
 
@@ -225,7 +229,7 @@ public class EncodingJobServiceImpl implements EncodingJobService {
     @Override
     public EncodingJob getJob(UUID jobId) {
         return jobRepository.findById(jobId)
-                .orElseThrow(() -> new RuntimeException("İş bulunamadı!"));
+                .orElseThrow(() -> new NotFoundException("İş bulunamadı!"));
     }
 
     @Override

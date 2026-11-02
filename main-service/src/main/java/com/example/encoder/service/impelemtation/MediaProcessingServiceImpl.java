@@ -1,9 +1,11 @@
 package com.example.encoder.service.impelemtation;
 
+import com.example.encoder.exception.NotFoundException;
 import com.example.encoder.entity.EncodingPreset;
 import com.example.encoder.repository.EncodingPresetRepository;
 import com.example.encoder.service.MediaProcessingService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -12,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MediaProcessingServiceImpl implements MediaProcessingService {
@@ -32,7 +35,7 @@ public class MediaProcessingServiceImpl implements MediaProcessingService {
     public String encodeVideo(String fileName, UUID presetId) {
         // 1. Veritabanından preset ayarlarını çek
         EncodingPreset preset = presetRepository.findById(presetId)
-                .orElseThrow(() -> new RuntimeException("Preset bulunamadı!"));
+                .orElseThrow(() -> new NotFoundException("Preset bulunamadı!"));
 
         String inputPath = inputFolder + "/" + fileName;
         String outputPath = outputFolder + "/encoded_" + preset.getName() + "_" + fileName;
@@ -56,15 +59,13 @@ public class MediaProcessingServiceImpl implements MediaProcessingService {
 
             command.add(outputPath);
 
-            System.out.println("=============================================");
-            System.out.println("ARANAN DOSYA YOLU: " + inputPath);
-            System.out.println("=============================================");
+            log.debug("Aranan dosya yolu: {}", inputPath);
 
             ProcessBuilder processBuilder = new ProcessBuilder(command);
             com.example.encoder.util.FFmpegProcessRunner.Result result =
                     com.example.encoder.util.FFmpegProcessRunner.run(
                             processBuilder.command(), encodeTimeoutSeconds,
-                            line -> System.out.println("[FFmpeg LOG]: " + line));
+                            line -> log.debug("[FFmpeg LOG]: {}", line));
 
             int exitCode = result.exitCode();
 

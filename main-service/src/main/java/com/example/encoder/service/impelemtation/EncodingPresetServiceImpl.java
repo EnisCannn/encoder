@@ -1,5 +1,8 @@
 package com.example.encoder.service.impelemtation;
 
+import com.example.encoder.exception.NotFoundException;
+import com.example.encoder.exception.ConflictException;
+import com.example.encoder.exception.BadRequestException;
 import com.example.encoder.dto.CreatePresetRequest;
 import com.example.encoder.dto.PresetResponse;
 import com.example.encoder.entity.EncodingPreset;
@@ -35,11 +38,11 @@ public class EncodingPresetServiceImpl implements EncodingPresetService {
     private void validatePresetBusinessRules(CreatePresetRequest request, UUID currentId) {
         boolean nameExists = repository.existsByName(request.name());
         if (nameExists) {
-            throw new RuntimeException("FAZ 4 KURAL İHLALİ: Bu isimde bir preset zaten var!");
+            throw new ConflictException("FAZ 4 KURAL İHLALİ: Bu isimde bir preset zaten var!");
         }
 
         if (request.audioBitrate() != null && (request.audioBitrate() < 64 || request.audioBitrate() > 320)) {
-            throw new RuntimeException("FAZ 4 KURAL İHLALİ: Audio bitrate 64 ile 320 kbps arasında olmalıdır!");
+            throw new BadRequestException("FAZ 4 KURAL İHLALİ: Audio bitrate 64 ile 320 kbps arasında olmalıdır!");
         }
     }
 
@@ -66,13 +69,13 @@ public class EncodingPresetServiceImpl implements EncodingPresetService {
     @Override
     public PresetResponse updatePreset(UUID id, CreatePresetRequest request) {
         EncodingPreset entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Kayıt bulunamadı!"));
+                .orElseThrow(() -> new NotFoundException("Kayıt bulunamadı!"));
 
         if (!entity.getName().equals(request.name())) {
             validatePresetBusinessRules(request, id);
         } else {
             if (request.audioBitrate() != null && (request.audioBitrate() < 64 || request.audioBitrate() > 320)) {
-                throw new RuntimeException("FAZ 4 KURAL İHLALİ: Audio bitrate 64 ile 320 kbps arasında olmalıdır!");
+                throw new BadRequestException("FAZ 4 KURAL İHLALİ: Audio bitrate 64 ile 320 kbps arasında olmalıdır!");
             }
         }
 

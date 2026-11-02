@@ -9,6 +9,7 @@ import com.example.encoder.piko.PikoProfiles;
 import com.example.encoder.repository.EncodeSetRepository;
 import com.example.encoder.repository.EncodingPresetRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +17,7 @@ import java.math.BigDecimal; // <-- BigDecimal için gereken kütüphane eklendi
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
@@ -86,7 +88,7 @@ public class DataInitializer implements CommandLineRunner {
             repository.save(preset3);
             repository.save(preset4);
 
-            System.out.println("4 adet varsayılan preset veritabanına başarıyla eklendi!");
+            log.info("4 adet varsayılan preset veritabanına başarıyla eklendi.");
         }
 
         ensurePikoProfiles();
@@ -126,7 +128,7 @@ public class DataInitializer implements CommandLineRunner {
         set.setPresets(new ArrayList<>(videoPresets));
         encodeSetRepository.save(set);
 
-        System.out.println("Piko uyumlu paket ve ses sablonu olusturuldu.");
+        log.info("Piko uyumlu paket ve ses sablonu olusturuldu.");
     }
 
     /** frameRate bos: kaynagin kare hizi korunur (zorlamak VMAF'ta puan kaybettiriyordu). */

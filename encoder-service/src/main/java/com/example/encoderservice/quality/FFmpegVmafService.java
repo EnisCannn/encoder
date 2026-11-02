@@ -8,6 +8,7 @@ import com.example.encoderservice.util.FFmpegProcessRunner;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +25,7 @@ import java.util.List;
  * Ölçüm encode değildir: yeni bir video üretmez, iki dosyayı okuyup tek bir sayı
  * çıkarır. Çıktı {@code -f null -} ile atılır, sadece JSON log dosyası tutulur.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class FFmpegVmafService implements VmafService {
@@ -96,7 +98,7 @@ public class FFmpegVmafService implements VmafService {
             logFile = Files.createTempFile("vmaf_", ".json");
 
             List<String> command = buildCommand(job, distorted, reference, logFile);
-            System.out.println("[VMAF CMD]: " + String.join(" ", command));
+            log.info("VMAF komutu: {}", String.join(" ", command));
 
             FFmpegProcessRunner.Result result = FFmpegProcessRunner.run(command, timeoutSeconds);
 
@@ -264,7 +266,7 @@ public class FFmpegVmafService implements VmafService {
             }
             return Double.parseDouble(value);
         } catch (Exception e) {
-            System.out.println("Kare hizi okunamadi: " + e.getMessage());
+            log.warn("Kare hizi okunamadi: {}", e.getMessage());
             return null;
         }
     }

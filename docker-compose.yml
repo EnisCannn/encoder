@@ -5,14 +5,16 @@ services:
     build: ./eureka-server
     container_name: eureka-server
     ports:
-      - "8761:8761"
+      # Soldaki sayi bilgisayara acilan port. 8761'i yerelde calisan CMS'in
+      # eureka'si kullaniyor; container ici port (sagdaki) ayni kaliyor.
+      - "8762:8761"
     networks:
       - encoder-net
 
   main-service:
     build: ./main-service
     container_name: main-service
-    # Dis dunyaya kapali: tek giris noktasi api-gateway (8090). Gateway ile
+    # Dis dunyaya kapali: tek giris noktasi api-gateway (9090). Gateway ile
     # encoder-worker ayni docker agindan 8081'e erisiyor, host'a acilmasina
     # gerek yok.
     expose:
@@ -22,9 +24,15 @@ services:
       - DB_USERNAME=${DB_USERNAME:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD .env dosyasinda tanimli olmali}
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      # CMS'in Piko uyumlu SOAP ucuna girerken kullandigi hesap
+      - CMS_USERNAME=${CMS_USERNAME:-cms}
+      - CMS_PASSWORD=${CMS_PASSWORD:-cms-gelistirme}
     volumes:
       # Windows klasörünü Linux'un kök dizinindeki /video_test klasörüne bağlıyoruz
       - C:/video_test:/video_test
+      # CMS'in paylasimli diski. Piko bu diski /media/piko-files altinda goruyor ve
+      # CMS yollari bu onekle gonderiyor; yerelde ayni yapiyi bu klasor taklit ediyor.
+      - ${CMS_SHARE_PATH:-C:/video_test/piko-files}:/media/piko-files
     depends_on:
       - eureka-server
     networks:
@@ -42,6 +50,8 @@ services:
     volumes:
       # İşçi servisler için de aynı bağlantıyı kuruyoruz
       - C:/video_test:/video_test
+      # CMS isleri girisi buradan okuyup ciktiyi buraya yaziyor (main-service ile ayni)
+      - ${CMS_SHARE_PATH:-C:/video_test/piko-files}:/media/piko-files
     depends_on:
       - eureka-server
       - main-service
@@ -67,8 +77,9 @@ services:
     build: ./api-gateway
     container_name: api-gateway
     ports:
-      # 8080 EDB'nin Apache'si tarafindan kullaniliyor, gateway 8090'da
-      - "8090:8090"
+      # 8080 EDB'nin Apache'si, 8090 yerelde calisan CMS (cms-vod-core) tarafindan
+      # kullaniliyor; gateway container icinde 8090'da, disariya 9090'dan acik
+      - "9090:8090"
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       # auth-service ile ayni imzalama anahtari
@@ -84,7 +95,8 @@ services:
     build: ./ui-service
     container_name: ui-service
     ports:
-      - "4200:80"
+      # 4200'u yerelde calisan CMS'in arayuzu (atlas-opui) kullaniyor
+      - "4300:80"
     networks:
       - encoder-net
 

@@ -1,10 +1,13 @@
 package com.example.encoder.service.impelemtation;
 
+import com.example.encoder.exception.ProcessingException;
+import com.example.encoder.exception.NotFoundException;
 import com.example.encoder.dto.CutRequest;
 import com.example.encoder.entity.Video;
 import com.example.encoder.repository.VideoRepository;
 import com.example.encoder.service.VideoToolsService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class VideoToolsServiceImpl implements VideoToolsService {
@@ -34,7 +38,7 @@ public class VideoToolsServiceImpl implements VideoToolsService {
     @Override
     public String cutVideo(CutRequest request) {
         Video video = videoRepository.findById(UUID.fromString(request.getVideoId()))
-                .orElseThrow(() -> new RuntimeException("Video bulunamadı!"));
+                .orElseThrow(() -> new NotFoundException("Video bulunamadı!"));
 
         // Klasör yoksa otomatik oluştur
         File dir = new File(clipsFolder);
@@ -63,14 +67,14 @@ public class VideoToolsServiceImpl implements VideoToolsService {
         command.add(outputPath.toString());
 
         try {
-            System.out.println("--- KLİP KESME İŞLEMİ BAŞLADI ---");
+            log.info("Klip kesme başladı");
 
             // Cikti burada hic okunmuyordu: pipe tamponu dolarsa ffmpeg kilitlenirdi.
             com.example.encoder.util.FFmpegProcessRunner.Result result =
                     com.example.encoder.util.FFmpegProcessRunner.run(command, clipTimeoutSeconds);
 
             int exitCode = result.exitCode();
-            System.out.println("--- KLİP KESME BİTTİ. Çıkış Kodu: " + exitCode + " ---");
+            log.info("Klip kesme bitti, çıkış kodu: {}", exitCode);
 
             if (exitCode == 0) {
                 // GÜNCELLENDİ: Oluşan klibi veritabanına Video olarak kaydediyoruz
@@ -82,10 +86,10 @@ public class VideoToolsServiceImpl implements VideoToolsService {
 
                 return outputFileName;
             } else {
-                throw new RuntimeException("FFmpeg kesme işlemi başarısız oldu.");
+                throw new ProcessingException("FFmpeg kesme işlemi başarısız oldu.");
             }
         } catch (Exception e) {
-            throw new RuntimeException("Sistem hatası: " + e.getMessage());
+            throw new ProcessingException("Sistem hatası: " + e.getMessage(), e);
         }
     }
 }

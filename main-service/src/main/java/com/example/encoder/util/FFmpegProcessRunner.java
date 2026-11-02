@@ -1,5 +1,6 @@
 package com.example.encoder.util;
 
+import com.example.encoder.exception.ProcessingException;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -82,7 +83,7 @@ public final class FFmpegProcessRunner {
         watchdog.interrupt();
 
         if (timedOut.get()) {
-            throw new RuntimeException("ffmpeg " + timeoutSeconds
+            throw new ProcessingException("ffmpeg " + timeoutSeconds
                     + " saniyede tamamlanamadı, süreç durduruldu.");
         }
 

@@ -29,11 +29,7 @@ public class LiveStreamController {
 
     @GetMapping
     public ResponseEntity<List<LiveStream>> getAllStreams() {
-        try {
-            return ResponseEntity.ok(liveStreamService.getAllStreams());
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
+        return ResponseEntity.ok(liveStreamService.getAllStreams());
     }
 
     @GetMapping("/play/{streamId}/{fileName:.+}")
@@ -68,40 +64,24 @@ public class LiveStreamController {
 
     @PostMapping("/start")
     public ResponseEntity<LiveStream> startStream(@RequestBody LiveStreamRequest request) {
-        try {
-            LiveStream stream = liveStreamService.startStream(request);
-            return ResponseEntity.ok(stream);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
+        return ResponseEntity.ok(liveStreamService.startStream(request));
     }
 
     @PostMapping("/stop/{id}")
     public ResponseEntity<String> stopStream(@PathVariable UUID id) {
-        try {
-            liveStreamService.stopStream(id);
-            return ResponseEntity.ok("Yayın başarıyla durduruldu.");
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Hata: " + e.getMessage());
-        }
+        liveStreamService.stopStream(id);
+        return ResponseEntity.ok("Yayın başarıyla durduruldu.");
     }
 
     @PostMapping("/clip")
     public ResponseEntity<String> createLiveClip(@RequestBody LiveClipRequest request) {
-        try {
-            String fileName = liveStreamService.createLiveClip(request);
-            return ResponseEntity.ok("Klip alındı: " + fileName);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Hata: " + e.getMessage());
-        }
+        String fileName = liveStreamService.createLiveClip(request);
+        return ResponseEntity.ok("Klip alındı: " + fileName);
     }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteStream(@PathVariable UUID id) {
-        try {
-            liveStreamService.deleteStream(id);
-            return ResponseEntity.ok("Yayın kaydı silindi.");
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Hata: " + e.getMessage());
-        }
+        liveStreamService.deleteStream(id);
+        return ResponseEntity.ok("Yayın kaydı silindi.");
     }
 }

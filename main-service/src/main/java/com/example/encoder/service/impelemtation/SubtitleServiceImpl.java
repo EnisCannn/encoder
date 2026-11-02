@@ -1,5 +1,6 @@
 package com.example.encoder.service.impelemtation;
 
+import com.example.encoder.exception.ProcessingException;
 import com.example.encoder.service.SubtitleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,7 +30,7 @@ public class SubtitleServiceImpl implements SubtitleService {
     public Path convertToVtt(String sourcePath, Path targetDir, String baseName) {
         Path source = Paths.get(sourcePath);
         if (!Files.exists(source)) {
-            throw new RuntimeException("Altyazı dosyası bulunamadı: " + sourcePath);
+            throw new ProcessingException("Altyazı dosyası bulunamadı: " + sourcePath);
         }
 
         try {
@@ -51,7 +52,7 @@ public class SubtitleServiceImpl implements SubtitleService {
                     com.example.encoder.util.FFmpegProcessRunner.run(builder.command(), toolTimeoutSeconds);
 
             if (!result.isSuccess() || !Files.exists(target)) {
-                throw new RuntimeException("Altyazı .vtt'ye çevrilemedi (ffmpeg çıkış kodu "
+                throw new ProcessingException("Altyazı .vtt'ye çevrilemedi (ffmpeg çıkış kodu "
                         + result.exitCode() + "): " + result.output());
             }
 
@@ -61,9 +62,9 @@ public class SubtitleServiceImpl implements SubtitleService {
             throw e;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("Altyazı dönüştürme yarıda kesildi", e);
+            throw new ProcessingException("Altyazı dönüştürme yarıda kesildi", e);
         } catch (Exception e) {
-            throw new RuntimeException("Altyazı dönüştürme hatası: " + e.getMessage(), e);
+            throw new ProcessingException("Altyazı dönüştürme hatası: " + e.getMessage(), e);
         }
     }
 }

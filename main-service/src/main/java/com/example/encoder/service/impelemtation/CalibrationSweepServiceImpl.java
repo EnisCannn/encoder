@@ -1,5 +1,8 @@
 package com.example.encoder.service.impelemtation;
 
+import com.example.encoder.exception.NotFoundException;
+import com.example.encoder.exception.ConflictException;
+import com.example.encoder.exception.BadRequestException;
 import com.example.encoder.dto.CalibrationSweepRequest;
 import com.example.encoder.dto.request.CreateEncodingJobRequest;
 import com.example.encoder.entity.EncodingJob;
@@ -43,13 +46,13 @@ public class CalibrationSweepServiceImpl implements CalibrationSweepService {
     @Transactional
     public List<EncodingJob> startSweep(CalibrationSweepRequest request) {
         Video video = videoRepository.findById(request.getVideoId())
-                .orElseThrow(() -> new RuntimeException("Video bulunamadı!"));
+                .orElseThrow(() -> new NotFoundException("Video bulunamadı!"));
 
         // Ayni bitrate iki kez girilirse tek is acilir; tekrar noktalar egriyi bozar
         List<Integer> bitrates = new ArrayList<>(new LinkedHashSet<>(request.getBitrates()));
         bitrates.removeIf(b -> b == null || b <= 0);
         if (bitrates.isEmpty()) {
-            throw new RuntimeException("Geçerli bir bitrate girilmedi!");
+            throw new BadRequestException("Geçerli bir bitrate girilmedi!");
         }
         bitrates.sort(Integer::compareTo);
 
@@ -133,7 +136,7 @@ public class CalibrationSweepServiceImpl implements CalibrationSweepService {
                 return candidate;
             }
         }
-        throw new RuntimeException("Kalibrasyon şablonu için boş ad bulunamadı: " + base);
+        throw new ConflictException("Kalibrasyon şablonu için boş ad bulunamadı: " + base);
     }
 
     private EncodingPreset buildCalibrationPreset(CalibrationSweepRequest request, Integer bitrate) {

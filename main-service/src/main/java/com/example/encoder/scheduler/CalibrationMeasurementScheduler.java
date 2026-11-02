@@ -6,6 +6,7 @@ import com.example.encoder.repository.EncodingJobRepository;
 import com.example.encoder.repository.QualityMeasurementRepository;
 import com.example.encoder.service.QualityMeasurementService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
  * Sadece kalibrasyon sablonuyla acilmis isleri kapsar; normal isler eskisi gibi
  * elle olculmeye devam eder.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class CalibrationMeasurementScheduler {
@@ -55,6 +57,6 @@ public class CalibrationMeasurementScheduler {
         }
 
         measurementService.requestMeasurements(missing);
-        System.out.println("Kalibrasyon olcumu kuyruga alindi: " + missing.size() + " is");
+        log.info("Kalibrasyon olcumu kuyruga alindi: {} is", missing.size());
     }
 }

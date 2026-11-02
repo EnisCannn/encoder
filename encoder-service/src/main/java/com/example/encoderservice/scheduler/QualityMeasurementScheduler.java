@@ -9,6 +9,7 @@ import com.example.encoderservice.quality.VmafService;
 import com.example.encoderservice.repository.EncodingJobRepository;
 import com.example.encoderservice.repository.QualityMeasurementRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -26,6 +27,7 @@ import java.util.Optional;
  * Encode ile ayni anda calisabilmesi icin scheduler havuzu 2 thread'e ayarli
  * (application.properties -> spring.task.scheduling.pool.size).
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class QualityMeasurementScheduler {
@@ -63,7 +65,7 @@ public class QualityMeasurementScheduler {
         }
 
         EncodingJob job = jobOpt.get();
-        System.out.println("Kalite olcumu basliyor. Job ID: " + job.getId());
+        log.info("Kalite olcumu basliyor. Job ID: {}", job.getId());
 
         VmafOutcome outcome = vmafService.measure(job);
 
@@ -80,16 +82,16 @@ public class QualityMeasurementScheduler {
                 job.setVmafScore(outcome.getMean());
                 jobRepository.save(job);
 
-                System.out.printf("Kalite olcumu bitti. Job ID: %s, VMAF: %.2f%n",
-                        job.getId(), outcome.getMean());
+                log.info("Kalite olcumu bitti. Job ID: {}, VMAF: {}",
+                        job.getId(), String.format("%.2f", outcome.getMean()));
             }
             case SKIPPED -> {
                 finish(measurement, MeasurementStatus.SKIPPED, outcome.getMessage());
-                System.out.println("Kalite olcumu atlandi (" + outcome.getMessage() + ")");
+                log.info("Kalite olcumu atlandi ({})", outcome.getMessage());
             }
             case FAILED -> {
                 finish(measurement, MeasurementStatus.FAILED, outcome.getMessage());
-                System.out.println("Kalite olcumu basarisiz: " + outcome.getMessage());
+                log.warn("Kalite olcumu basarisiz: {}", outcome.getMessage());
             }
         }
     }
